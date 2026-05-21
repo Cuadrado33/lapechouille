@@ -18,7 +18,7 @@ from ui.navigation import render_sidebar_navigation, get_active_page
 
 from modules import (
     accueil, conditions, sessions, captures,
-    competition, analyse, export_data, reseau,
+    competition, analyse, export_data, reseau, reseau_class, reseau_amis_page,
     materiel_cannes, materiel_moulinets, materiel_montages,
     materiel_divers, materiel_tableaux,
     identification, photos, webcams, services, alertes,
@@ -83,7 +83,9 @@ def main() -> None:
         "services": services.render,
         "alertes":  alertes.render,
         "export":   export_data.render,
-        "reseau":   reseau.render,
+        "reseau":       reseau.render,
+        "reseau_amis":  reseau_amis_page.render,
+        "reseau_class": reseau_class.render,
     }
 
     render_fn = PAGE_ROUTER.get(active_page, accueil.render)

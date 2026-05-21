@@ -10,9 +10,11 @@ NAV_GROUPS = [
     {
         "title": "Accueil",
         "items": [
-            {"key": "accueil",   "label": "Tableau de bord",   "icon": "🏠"},
-            {"key": "profil",    "label": "Mon profil",         "icon": "👤"},
-            {"key": "mes_spots", "label": "Mes spots",          "icon": "⭐"},
+            {"key": "accueil",      "label": "Tableau de bord",      "icon": "🏠"},
+            {"key": "profil",       "label": "Mon profil",            "icon": "👤"},
+            {"key": "reseau",       "label": "Fil d'actualité",       "icon": "📰"},
+            {"key": "reseau_amis",  "label": "Amis",                  "icon": "👥"},
+            {"key": "reseau_class", "label": "Classement pêcheurs",   "icon": "🏆"},
         ],
     },
     {
@@ -29,8 +31,9 @@ NAV_GROUPS = [
     {
         "title": "2 · Suivi pêche",
         "items": [
+            {"key": "mes_spots",      "label": "Mes spots",            "icon": "⭐"},
             {"key": "sessions",       "label": "Mes sessions",         "icon": "📓"},
-            {"key": "competition",    "label": "Compétition",          "icon": "🏆"},
+            {"key": "competition",    "label": "Compétition",          "icon": "🎖️"},
             {"key": "captures",       "label": "Mes captures",         "icon": "🎣"},
             {"key": "identification", "label": "Identification poissons", "icon": "🐟"},
             {"key": "spots_appats",   "label": "Spots appâts",         "icon": "🪱"},
@@ -50,18 +53,11 @@ NAV_GROUPS = [
     {
         "title": "4 · Divers",
         "items": [
-            {"key": "photos",         "label": "Photos / souvenirs",       "icon": "📸"},
-            {"key": "webcams",        "label": "Webcams plages",           "icon": "🌐"},
-            {"key": "services",       "label": "Services à proximité",     "icon": "🧭"},
-            {"key": "alertes",        "label": "Alertes locales",          "icon": "🚨"},
-            {"key": "export",         "label": "Export des données",       "icon": "📤"},
-        ],
-    },
-    {
-        "title": "5 · 🌊 Réseau",
-        "items": [
-            {"key": "reseau",  "label": "Fil d'actualité",       "icon": "📰"},
-            {"key": "reseau",  "label": "Amis & Classement",     "icon": "👥"},
+            {"key": "photos",   "label": "Photos / souvenirs",    "icon": "📸"},
+            {"key": "webcams",  "label": "Webcams plages",         "icon": "🌐"},
+            {"key": "services", "label": "Services à proximité",  "icon": "🧭"},
+            {"key": "alertes",  "label": "Alertes locales",       "icon": "🚨"},
+            {"key": "export",   "label": "Export des données",    "icon": "📤"},
         ],
     },
 ]
