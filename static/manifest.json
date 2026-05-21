@@ -1,0 +1,40 @@
+{
+  "name": "Carnet Surfcasting",
+  "short_name": "Surfcasting",
+  "description": "Carnet de pêche surfcasting — sessions, captures, conditions, matériel",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0c2340",
+  "theme_color": "#0c2340",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["sports", "lifestyle", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Nouvelle session",
+      "short_name": "Session",
+      "url": "/?page=sessions",
+      "description": "Créer une nouvelle session de pêche"
+    },
+    {
+      "name": "Conditions",
+      "short_name": "Météo",
+      "url": "/?page=conditions",
+      "description": "Voir les conditions du jour"
+    }
+  ]
+}

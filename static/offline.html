@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carnet Surfcasting — Hors ligne</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: system-ui, sans-serif;
+    background: linear-gradient(135deg, #0c2340, #1b4965);
+    color: white;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+  }
+  .icon { font-size: 72px; margin-bottom: 24px; }
+  h1 { font-size: 26px; font-weight: 800; margin-bottom: 12px; }
+  p  { font-size: 15px; opacity: .75; max-width: 300px; line-height: 1.6; }
+  .retry {
+    margin-top: 32px;
+    padding: 14px 32px;
+    background: #c9712b;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: 50px;
+  }
+  .retry:active { opacity: .8; }
+</style>
+</head>
+<body>
+  <div class="icon">🎣</div>
+  <h1>Pas de connexion</h1>
+  <p>Lance d'abord l'application sur ton PC, puis connecte ton téléphone au même réseau Wi-Fi.</p>
+  <button class="retry" onclick="window.location.reload()">Réessayer</button>
+</body>
+</html>

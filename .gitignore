@@ -1,0 +1,11 @@
+# Ne jamais commiter la DB locale ni les secrets
+surfcasting.db
+.streamlit/secrets.toml
+__pycache__/
+*.pyc
+*.pyo
+photos_captures/
+photos_spots/
+photos_multimedia/
+photos_materiel/
+backups/
