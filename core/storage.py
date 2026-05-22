@@ -47,10 +47,13 @@ def _upload_to_supabase(uploaded_file: Any, folder: str, prefix: str) -> Optiona
         if r.status_code in (200, 201):
             return f"{SUPABASE_URL}/storage/v1/object/public/photos/{dest_path}"
         else:
-            # Fallback local si Supabase Storage échoue
-            return _save_local(uploaded_file, folder, filename)
-    except Exception:
-        return _save_local(uploaded_file, folder, filename)
+            import streamlit as st
+            st.error(f"❌ Upload photo échoué : {r.status_code} — {r.text[:200]}")
+            return None
+    except Exception as e:
+        import streamlit as st
+        st.error(f"❌ Erreur upload photo : {e}")
+        return None
 
 
 def _save_local(uploaded_file: Any, folder: str, filename: str) -> Optional[str]:
