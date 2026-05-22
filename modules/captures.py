@@ -335,30 +335,42 @@ def _render_captures_by_session(sessions: pd.DataFrame) -> None:
                 f'#{i+1} · {heure} · {badges}</div>',
                 unsafe_allow_html=True,
             )
-            c_photo, c_main, c_specs, c_actions = st.columns([1, 2.5, 1.5, 1.2])
+            c_visual, c_main, c_actions = st.columns([1.5, 3.5, 1])
 
-            with c_photo:
+            with c_visual:
+                # Toujours afficher le SVG du poisson
+                from data.fish_data import get_fish_visual
+                visual_html = get_fish_visual(espece, size=100)
+                _comp.html(
+                    f'<div style="display:flex;align-items:center;justify-content:center;">'
+                    f'{visual_html}</div>',
+                    height=80, scrolling=False,
+                )
+                # Photo en dessous si disponible
                 if photo_path and (str(photo_path).startswith("http") or Path(photo_path).exists()):
                     if str(photo_path).startswith("http"):
                         _comp.html(
-                            f'<img src="{photo_path}" style="width:100%;aspect-ratio:1;'
-                            f'object-fit:cover;border-radius:8px;">',
-                            height=120, scrolling=False,
+                            f'<img src="{photo_path}" style="width:100%;max-height:140px;'
+                            f'object-fit:cover;border-radius:8px;margin-top:4px;">',
+                            height=150, scrolling=False,
                         )
                     else:
                         st.image(photo_path, use_container_width=True)
-                else:
-                    from data.fish_data import get_fish_visual
-                    visual_html = get_fish_visual(espece, size=110)
-                    _comp.html(
-                        f'<div style="display:flex;align-items:center;justify-content:center;'
-                        f'aspect-ratio:1;">{visual_html}</div>',
-                        height=120, scrolling=False,
-                    )
 
             with c_main:
-                st.markdown(f"**{espece}**")
-                # Icône appât SVG si disponible
+                # Nom + badges taille/poids
+                st.markdown(
+                    f'<div style="font-size:15px;font-weight:800;color:#0c2340;margin-bottom:4px;">'
+                    f'{espece}</div>'
+                    f'<div style="margin-bottom:6px;">'
+                    f'<span style="background:#E3F2FD;color:#1565C0;font-size:12px;font-weight:700;'
+                    f'padding:3px 10px;border-radius:10px;margin-right:4px;">📏 {taille:.0f} cm</span>'
+                    f'<span style="background:#FFF3E0;color:#E65100;font-size:12px;font-weight:700;'
+                    f'padding:3px 10px;border-radius:10px;">{poids_txt}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+                # Appât
                 appat_svg = next((APPAT_SVG_MAP[k] for k in APPAT_SVG_MAP if k.lower() in appat.lower()), "")
                 if appat_svg:
                     _comp.html(
@@ -367,26 +379,35 @@ def _render_captures_by_session(sessions: pd.DataFrame) -> None:
                         f'{icon_box(appat_svg, 28)} <b>{appat}</b></div>',
                         height=36, scrolling=False,
                     )
-                else:
+                elif appat:
                     st.caption(f"🪱 {appat}")
-                st.caption(f"🧵 {safe_str(row.get('montage')) or '—'}")
-                # Matériel utilisé
+
+                # Montage
+                montage = safe_str(row.get("montage"))
+                if montage: st.caption(f"🧵 {montage}")
+
+                # Matériel
                 mat = []
-                if safe_str(row.get("canne")):    mat.append(f"🎯 {row['canne']}")
-                if safe_str(row.get("moulinet")): mat.append(f"⚙️ {row['moulinet']}")
+                if safe_str(row.get("canne")):           mat.append(f"🎯 {row['canne']}")
+                if safe_str(row.get("moulinet")):        mat.append(f"⚙️ {row['moulinet']}")
                 if safe_str(row.get("bobine_moulinet")): mat.append(f"🧵 {row['bobine_moulinet']}")
                 if mat: st.caption(" · ".join(mat))
-                # Hameçon
-                ham = " ".join(filter(None, [safe_str(row.get("marque_hamecon")),
-                                              safe_str(row.get("modele_hamecon")),
-                                              f"#{row['taille_hamecon']}" if safe_str(row.get("taille_hamecon")) else ""]))
-                if ham: st.caption(f"🪝 {ham}")
-                if safe_str(row.get("commentaire")):
-                    st.caption(safe_str(row.get("commentaire")))
 
-            with c_specs:
-                st.metric("Taille", f"{taille:.0f} cm" if taille else "—")
-                st.metric("Poids",  poids_txt)
+                # Hameçon
+                ham = " ".join(filter(None, [
+                    safe_str(row.get("marque_hamecon")),
+                    safe_str(row.get("modele_hamecon")),
+                    f"#{row['taille_hamecon']}" if safe_str(row.get("taille_hamecon")) else "",
+                ]))
+                if ham: st.caption(f"🪝 {ham}")
+
+                # Distance
+                dist = row.get("distance_lancer_m")
+                if dist: st.caption(f"📐 {float(dist):.0f} m")
+
+                # Commentaire
+                if safe_str(row.get("commentaire")):
+                    st.caption(f"💬 {safe_str(row.get('commentaire'))}")
 
             with c_actions:
                 edit_key = f"cap_edit_open_{cap_id}"

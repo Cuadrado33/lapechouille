@@ -305,13 +305,17 @@ def _render_form(profil, photo_path):
                 b64 = _b64.b64encode(raw).decode()
                 ext = getattr(pending, "name", "x.jpg").rsplit(".", 1)[-1].lower()
                 mime = "image/jpeg" if ext in ("jpg","jpeg") else f"image/{ext}"
-                crop = st.session_state.get("pf_crop", 50)
+                crop_v = st.session_state.get("pf_crop_v", 50)
+                crop_h = st.session_state.get("pf_crop_h", 50)
+                # Calculer le décalage : 0%=haut/gauche, 50%=centre, 100%=bas/droite
+                margin_top  = -(crop_v * 0.4)   # -20% à +0%
+                margin_left = -(crop_h * 0.4)
                 _c.html(
                     f'<div style="width:100px;height:100px;border-radius:50%;'
                     f'overflow:hidden;border:3px solid #1565C0;margin:auto;">'
                     f'<img src="data:{mime};base64,{b64}" '
                     f'style="width:140%;height:140%;object-fit:cover;'
-                    f'margin-left:-20%;margin-top:-{crop//3}%;">'
+                    f'margin-left:{margin_left}%;margin-top:{margin_top}%;">'
                     f'</div>',
                     height=120, scrolling=False,
                 )
@@ -343,15 +347,20 @@ def _render_form(profil, photo_path):
             )
             if upl is not None:
                 st.session_state["pf_pending_photo"] = upl
-                st.session_state["pf_crop"] = 50
+                st.session_state["pf_crop_v"] = 50
+                st.session_state["pf_crop_h"] = 50
                 st.rerun()
 
-            # Contrôle de recadrage vertical
             if st.session_state.get("pf_pending_photo"):
-                st.session_state["pf_crop"] = st.slider(
-                    "↕️ Ajuster le cadrage", 0, 100,
-                    st.session_state.get("pf_crop", 50),
-                    key="pf_crop_slider",
+                st.session_state["pf_crop_v"] = st.slider(
+                    "↕️ Vertical", 0, 100,
+                    st.session_state.get("pf_crop_v", 50),
+                    key="pf_crop_v_slider",
+                )
+                st.session_state["pf_crop_h"] = st.slider(
+                    "↔️ Horizontal", 0, 100,
+                    st.session_state.get("pf_crop_h", 50),
+                    key="pf_crop_h_slider",
                 )
                 if st.button("❌ Supprimer cette photo", key="pf_remove_photo"):
                     st.session_state.pop("pf_pending_photo", None)
