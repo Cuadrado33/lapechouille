@@ -465,208 +465,125 @@ def _render_sessions_list(terminee: bool, type_filter: str | None = None) -> Non
     except Exception:
         all_mm = pd.DataFrame()
 
-    for i, (_, row) in enumerate(filtered.iterrows()):
-        sid    = int(row["id"])
-        type_s = safe_str(row.get("type_session")) or "Loisir"
-        lieu   = safe_str(row.get("lieu")) or "—"
-        d      = format_date_fr(row.get("date_session")) or "—"
-        debut  = safe_str(row.get("heure_debut")) or "—"
-        fin    = safe_str(row.get("heure_fin")) or "—"
+    for row_start in range(0, len(filtered), 3):
+        row_sessions = filtered.iloc[row_start:row_start+3]
+        cols = st.columns(len(row_sessions))
 
-        # Captures de la session
-        sess_caps = captures[captures["session_id"] == sid] \
-                    if not captures.empty and "session_id" in captures.columns \
-                    else pd.DataFrame()
-        nb_cap = len(sess_caps)
+        for col, (_, row) in zip(cols, row_sessions.iterrows()):
+            sid    = int(row["id"])
+            type_s = safe_str(row.get("type_session")) or "Loisir"
+            lieu   = safe_str(row.get("lieu")) or "—"
+            d      = format_date_fr(row.get("date_session")) or "—"
+            debut  = safe_str(row.get("heure_debut")) or "—"
+            fin    = safe_str(row.get("heure_fin")) or "—"
 
-        # Stats compactes
-        especes_uniq = []
-        best_taille  = None
-        poids_total  = 0.0
-        if not sess_caps.empty:
-            if "espece" in sess_caps.columns:
-                especes_uniq = sorted({safe_str(x) for x in sess_caps["espece"] if safe_str(x)})
-            if "taille_cm" in sess_caps.columns:
-                tt = pd.to_numeric(sess_caps["taille_cm"], errors="coerce").dropna()
-                tt = tt[tt > 0]
-                if not tt.empty:
-                    best_taille = float(tt.max())
-            if "poids_g" in sess_caps.columns:
-                pp = pd.to_numeric(sess_caps["poids_g"], errors="coerce").dropna()
-                poids_total = float(pp.sum())
+            sess_caps = captures[captures["session_id"] == sid] \
+                        if not captures.empty and "session_id" in captures.columns \
+                        else pd.DataFrame()
+            nb_cap = len(sess_caps)
 
-        # ── Photo illustrative ──
-        # Priorité : photo de capture > photo de session > SVG espèce > emoji type
-        thumb_path = ""
-        if not sess_caps.empty and "photo_path" in sess_caps.columns:
-            with_photo = sess_caps[sess_caps["photo_path"].astype(str).str.len() > 0]
-            if not with_photo.empty:
-                p = safe_str(with_photo.iloc[0].get("photo_path"))
-                if p and Path(p).exists():
-                    thumb_path = p
-        if not thumb_path and not all_mm.empty and "espece" in all_mm.columns:
-            tag = f"session_{sid}"
-            mm = all_mm[all_mm["espece"].astype(str) == tag]
-            if not mm.empty and "photo_path" in mm.columns:
-                p = safe_str(mm.iloc[0].get("photo_path"))
-                if p and Path(p).exists():
-                    thumb_path = p
+            especes_uniq = []
+            best_taille  = None
+            poids_total  = 0.0
+            if not sess_caps.empty:
+                if "espece" in sess_caps.columns:
+                    especes_uniq = sorted({safe_str(x) for x in sess_caps["espece"] if safe_str(x)})
+                if "taille_cm" in sess_caps.columns:
+                    tt = pd.to_numeric(sess_caps["taille_cm"], errors="coerce").dropna()
+                    tt = tt[tt > 0]
+                    if not tt.empty:
+                        best_taille = float(tt.max())
+                if "poids_g" in sess_caps.columns:
+                    pp_s = pd.to_numeric(sess_caps["poids_g"], errors="coerce").dropna()
+                    poids_total = float(pp_s.sum())
 
-        # Couleurs / icônes par type
-        type_color = "#C62828" if "ompétition" in type_s \
-                     else ("#EF6C00" if "ntra" in type_s else "#2E7D32")
-        type_icon  = "🏆" if "ompétition" in type_s \
-                     else ("🎯" if "ntra" in type_s else "🎣")
+            type_color = "#C62828" if "ompétition" in type_s \
+                         else ("#EF6C00" if "ntra" in type_s else "#2E7D32")
+            type_icon  = "🏆" if "ompétition" in type_s \
+                         else ("🎯" if "ntra" in type_s else "🎣")
 
-        # Vignette HTML (photo, SVG ou emoji)
-        if thumb_path:
-            import base64
-            try:
-                ext = Path(thumb_path).suffix.lower().lstrip(".")
-                mime = "image/jpeg" if ext in ("jpg", "jpeg") else f"image/{ext}"
-                b64 = base64.b64encode(Path(thumb_path).read_bytes()).decode()
-                thumb_html = (
-                    f'<img src="data:{mime};base64,{b64}" '
-                    f'style="width:100%;height:120px;object-fit:cover;'
-                    f'border-radius:8px;border:2px solid {type_color};">'
-                )
-            except Exception:
-                thumb_html = ""
-        else:
-            thumb_html = ""
-
-        if not thumb_html:
-            # SVG d'une espèce capturée
-            svg_inner = ""
-            if especes_uniq:
-                from data.fish_data import FISH_SVG
-                from modules.identification import _norm_fish_name
-                # Trouve une fiche correspondant à l'espèce
-                for esp in especes_uniq:
-                    n = _norm_fish_name(esp)
-                    for fid, svg in FISH_SVG.items():
-                        if fid in n or n.startswith(fid.replace("_", " ").split()[0]):
-                            svg_inner = svg
-                            break
-                    if svg_inner:
-                        break
-            if svg_inner:
-                thumb_html = (
-                    f'<div style="width:100%;height:120px;background:#f5f7f9;'
-                    f'border:2px solid {type_color};border-radius:8px;'
-                    f'display:flex;align-items:center;justify-content:center;'
-                    f'padding:8px;">{svg_inner}</div>'
-                )
-            else:
-                thumb_html = (
-                    f'<div style="width:100%;height:120px;'
-                    f'background:linear-gradient(135deg,{type_color}33,{type_color}11);'
-                    f'border:2px solid {type_color};border-radius:8px;'
-                    f'display:flex;align-items:center;justify-content:center;'
-                    f'font-size:54px;">{type_icon}</div>'
-                )
-
-        # ── Carte avec bandeau coloré ──────────────────────────────
-        with st.container(border=True):
-
-            # Bandeau titre coloré pleine largeur
-            coef_s = safe_str(row.get("coefficient_maree"))
-            coef_txt = f" · 🌊 Coef {int(float(coef_s))}" if coef_s and coef_s.replace('.','').isdigit() else ""
-            st.markdown(
-                f'<div style="background:linear-gradient(135deg,{type_color}dd,{type_color}99);'
-                f'color:#fff;padding:8px 14px;border-radius:8px;margin-bottom:8px;'
-                f'display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">'
-                f'<span style="font-size:15px;font-weight:800;">{type_icon} {lieu}</span>'
-                f'<span style="font-size:11px;opacity:.95;">📅 {d} · 🕒 {debut}→{fin}{coef_txt}</span>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-
-            col_img, col_info, col_btn = st.columns([1, 3, 1])
-
-            with col_img:
-                _comp.html(
-                    f'<div style="display:flex;align-items:center;justify-content:center;'
-                    f'height:110px;">{thumb_html}</div>',
-                    height=120, scrolling=False,
-                )
-
-            with col_info:
-                # Badge type
-                st.markdown(
-                    f'<span style="background:{type_color}22;color:{type_color};'
-                    f'font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;">'
-                    f'{type_s}</span>',
-                    unsafe_allow_html=True,
-                )
-
-                # Mini-stats en pastilles
-                stat_bits = []
-                stat_bits.append(f'<span style="background:#E8F5E9;color:#2E7D32;'
-                                  f'font-size:11px;font-weight:700;padding:3px 10px;'
-                                  f'border-radius:10px;">🐟 {nb_cap} prise(s)</span>')
-                if best_taille:
-                    stat_bits.append(f'<span style="background:#FFF3E0;color:#E65100;'
-                                      f'font-size:11px;font-weight:700;padding:3px 10px;'
-                                      f'border-radius:10px;">📏 {best_taille:.0f} cm</span>')
-                if poids_total > 0:
-                    poids_lbl = f"{poids_total/1000:.2f} kg" if poids_total >= 1000 \
-                                else f"{poids_total:.0f} g"
-                    stat_bits.append(f'<span style="background:#E3F2FD;color:#1565C0;'
-                                      f'font-size:11px;font-weight:700;padding:3px 10px;'
-                                      f'border-radius:10px;">⚖️ {poids_lbl}</span>')
-                st.markdown('<div style="margin:6px 0;">' +
-                             "".join(stat_bits) + '</div>',
-                             unsafe_allow_html=True)
-
-                # Espèces (compacte, en ligne, max 4)
-                if especes_uniq:
-                    shown = especes_uniq[:4]
-                    extra = len(especes_uniq) - 4
-                    esp_html = " · ".join(shown)
-                    if extra > 0:
-                        esp_html += f" <em>+{extra}</em>"
+            with col:
+                with st.expander(f"{type_icon} **{lieu}** · {d}", expanded=False):
+                    # Bandeau titre coloré
+                    coef_s = safe_str(row.get("coefficient_maree"))
+                    coef_txt = f" · 🌊 Coef {int(float(coef_s))}" if coef_s and coef_s.replace('.','').isdigit() else ""
                     st.markdown(
-                        f'<div style="font-size:11px;color:#37474F;font-style:italic;'
-                        f'border-left:2px solid {type_color};padding-left:8px;">'
-                        f'🐟 {esp_html}</div>',
+                        f'<div style="background:linear-gradient(135deg,{type_color}cc,{type_color}88);'
+                        f'color:#fff;padding:6px 10px;border-radius:6px;margin-bottom:8px;">'
+                        f'<span style="font-size:13px;font-weight:800;">{type_icon} {type_s}</span><br>'
+                        f'<span style="font-size:11px;">📅 {d} · 🕒 {debut}→{fin}{coef_txt}</span>'
+                        f'</div>',
                         unsafe_allow_html=True,
                     )
 
-            with col_btn:
-                scope = f"{terminee}_{type_filter or 'all'}"
-                if st.button("📋 Voir",
-                              key=f"ss_view_{scope}_{sid}",
-                              use_container_width=True, type="primary"):
-                    st.session_state["ss_detail_id"] = sid
-                    st.rerun()
-                if not terminee:
-                    if st.button("🛑 Fin",
-                                  key=f"ss_end_{scope}_{sid}",
-                                  use_container_width=True):
-                        now_t   = datetime.now().time().replace(second=0, microsecond=0)
-                        start_t = parse_time_safe(row.get("heure_debut"), time(20, 0))
-                        update_row("sessions", sid, {
-                            "session_terminee": 1,
-                            "heure_fin":        now_t.strftime("%H:%M"),
-                            "duree_heures":     compute_duration_hours(start_t, now_t),
-                        })
-                        st.cache_data.clear()
-                        st.success("Session terminée.")
-                        st.rerun()
-                if st.button("🗑️ Supprimer",
-                              key=f"ss_del_{scope}_{sid}",
-                              use_container_width=True, help="Supprimer"):
-                    st.session_state[f"confirm_ss_{sid}"] = True
+                    # Photos de la session
+                    photos_sess = []
+                    if not sess_caps.empty and "photo_path" in sess_caps.columns:
+                        for _, cr in sess_caps.iterrows():
+                            p = safe_str(cr.get("photo_path"))
+                            if p and str(p).startswith("http"):
+                                photos_sess.append(p)
+                    if photos_sess:
+                        for ph in photos_sess[:3]:
+                            _comp.html(
+                                f'<img src="{ph}" style="width:100%;max-height:160px;'
+                                f'object-fit:cover;border-radius:6px;margin-bottom:4px;">',
+                                height=170, scrolling=False,
+                            )
 
-            if st.session_state.get(f"confirm_ss_{sid}"):
-                if confirm_destructive(f"ss_{scope}_{sid}",
-                                       "Supprimer cette session, ses captures et photos ?"):
-                    delete_session(sid)
-                    st.session_state[f"confirm_ss_{sid}"] = False
-                    st.cache_data.clear()
-                    st.success("Session supprimée.")
-                    st.rerun()
+                    # Stats
+                    st.markdown(
+                        f'<div style="margin:6px 0;">'
+                        f'<span style="background:#E8F5E9;color:#2E7D32;font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;margin-right:4px;">🐟 {nb_cap} prise(s)</span>'
+                        + (f'<span style="background:#FFF3E0;color:#E65100;font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;margin-right:4px;">📏 {best_taille:.0f} cm</span>' if best_taille else '')
+                        + (f'<span style="background:#E3F2FD;color:#1565C0;font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;">⚖️ {poids_total/1000:.2f} kg</span>' if poids_total >= 1000 else (f'<span style="background:#E3F2FD;color:#1565C0;font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;">⚖️ {poids_total:.0f} g</span>' if poids_total > 0 else ''))
+                        + f'</div>',
+                        unsafe_allow_html=True,
+                    )
+
+                    # Espèces
+                    if especes_uniq:
+                        st.caption("🐟 " + " · ".join(especes_uniq[:4]))
+
+                    # Analyse météo
+                    meteo_parts = []
+                    if safe_str(row.get("vent_vitesse")): meteo_parts.append(f"💨 {float(row['vent_vitesse']):.0f} km/h")
+                    if safe_str(row.get("vague_hauteur")): meteo_parts.append(f"🌊 {float(row['vague_hauteur']):.1f}m")
+                    if safe_str(row.get("temperature_air")): meteo_parts.append(f"🌡️ {float(row['temperature_air']):.0f}°C")
+                    if meteo_parts:
+                        st.caption(" · ".join(meteo_parts))
+
+                    # Matériel
+                    mat_parts = []
+                    if safe_str(row.get("canne")): mat_parts.append(f"🎯 {row['canne']}")
+                    if safe_str(row.get("moulinet")): mat_parts.append(f"⚙️ {row['moulinet']}")
+                    if mat_parts:
+                        st.caption(" · ".join(mat_parts))
+
+                    # Commentaire
+                    if safe_str(row.get("commentaire")):
+                        st.caption(f"💬 {safe_str(row.get('commentaire'))}")
+
+                    # Boutons actions
+                    ca, cb = st.columns(2)
+                    edit_key = f"sess_edit_{sid}"
+                    if ca.button("✏️ Modifier", key=f"sess_edit_btn_{sid}",
+                                  use_container_width=True):
+                        st.session_state[edit_key] = not st.session_state.get(edit_key, False)
+                        st.rerun()
+                    if cb.button("🗑️ Supprimer", key=f"sess_del_btn_{sid}",
+                                  use_container_width=True):
+                        st.session_state[f"confirm_sess_{sid}"] = True
+
+                    if st.session_state.get(f"confirm_sess_{sid}"):
+                        if confirm_destructive(f"sess_{sid}", f"Supprimer session {lieu} ?"):
+                            delete_session(sid)
+                            st.session_state[f"confirm_sess_{sid}"] = False
+                            st.cache_data.clear()
+                            st.rerun()
+
+                    if st.session_state.get(edit_key):
+                        _render_edit_session(row, sid)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -973,7 +890,7 @@ def _render_session_captures(sid: int, terminee: bool) -> None:
             c_photo, c_main, c_specs, c_act = st.columns([1, 2.5, 1.5, 1])
 
             with c_photo:
-                if photo_path and Path(photo_path).exists():
+                if photo_path and (str(photo_path).startswith("http") or Path(photo_path).exists()):
                     st.image(photo_path, use_container_width=True)
                 else:
                     # Pas de photo : SVG fabriqué via helper centralisé
