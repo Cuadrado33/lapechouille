@@ -86,13 +86,22 @@ def _render_cards(df, kind):
                         unsafe_allow_html=True,
                     )
 
-                    # Photo
+                    # Photo portrait complète + lightbox
                     if photo_path and str(photo_path).startswith("http"):
-                        _cv.html(
-                            f'<img src="{photo_path}" style="width:100%;height:140px;'
-                            f'object-fit:cover;border-radius:6px;margin-bottom:6px;">',
-                            height=148, scrolling=False,
-                        )
+                        lb_id = f"lb_canne_{item_id}"
+                        _cv.html(f"""
+<img src="{photo_path}"
+  onclick="document.getElementById('{lb_id}').style.display='flex'"
+  style="width:100%;max-height:300px;object-fit:contain;border-radius:6px;
+  margin-bottom:6px;cursor:pointer;background:#f5f5f5;display:block;">
+<div id="{lb_id}" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);
+  z-index:9999;align-items:center;justify-content:center;flex-direction:column;">
+  <img src="{photo_path}" style="max-width:90vw;max-height:85vh;object-fit:contain;border-radius:8px;">
+  <button onclick="document.getElementById('{lb_id}').style.display='none'"
+    style="margin-top:14px;background:rgba(255,255,255,.2);color:#fff;border:none;
+    padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;">✕ Fermer</button>
+</div>
+""", height=310, scrolling=False)
 
                     # Pastilles caractéristiques
                     badges = []

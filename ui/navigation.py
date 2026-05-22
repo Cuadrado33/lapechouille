@@ -107,7 +107,6 @@ def render_sidebar_navigation() -> None:
 
     # ── Utilisateur connecté ─────────────────────────────────────────
     if user:
-        _render_sidebar_profile_card()
         if st.sidebar.button("🚪 Se déconnecter", key="nav_logout",
                               use_container_width=True):
             st.session_state.pop("reseau_user", None)
