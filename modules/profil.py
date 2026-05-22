@@ -58,8 +58,8 @@ def _upload_photo(key_prefix: str) -> str | None:
     mime = "image/jpeg" if ext in ("jpg","jpeg") else f"image/{ext}"
     b64  = _b64.b64encode(b).decode()
 
-    cv = st.slider("↕️ Vertical",   0, 100, st.session_state.get(f"{key_prefix}_cv", 50), key=f"{key_prefix}_cv")
-    ch = st.slider("↔️ Horizontal", 0, 100, st.session_state.get(f"{key_prefix}_ch", 50), key=f"{key_prefix}_ch")
+    cv = st.slider("↕️ Vertical",   0, 100, st.session_state.get(f"{key_prefix}_cv", 50), key=f"{key_prefix}_cv_slider")
+    ch = st.slider("↔️ Horizontal", 0, 100, st.session_state.get(f"{key_prefix}_ch", 50), key=f"{key_prefix}_ch_slider")
     st.session_state[f"{key_prefix}_cv"] = cv
     st.session_state[f"{key_prefix}_ch"] = ch
 
