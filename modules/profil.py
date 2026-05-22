@@ -308,6 +308,14 @@ def _render_form(profil, photo_path):
                                    key="pf_photo_upload_widget")
         new_photo = upl if upl is not None else cam
 
+        # Stocker dans session_state pour survivre au rerun du form submit
+        if new_photo is not None:
+            st.session_state["pf_pending_photo"] = new_photo
+            # Prévisualisation immédiate
+            st.image(new_photo, width=120, caption="Aperçu")
+        elif st.session_state.get("pf_pending_photo") is not None:
+            st.image(st.session_state["pf_pending_photo"], width=120, caption="Aperçu")
+
     with st.form("profil_form"):
         # Identité
         with st.container(border=True):
@@ -382,10 +390,15 @@ def _render_form(profil, photo_path):
                 **social_vals,
                 "updated_at": datetime.now().isoformat(timespec="seconds"),
             }
-            if new_photo:
-                pp = save_materiel_photo(new_photo, 0, "profil")
+            # Récupérer la photo depuis session_state
+            pending = st.session_state.get("pf_pending_photo")
+            if pending:
+                pp = save_materiel_photo(pending, 0, "profil")
                 if pp:
                     data["photo_path"] = pp
+                    st.session_state.pop("pf_pending_photo", None)
+                else:
+                    data["photo_path"] = photo_path
             elif photo_path:
                 data["photo_path"] = photo_path
             if not profil:
