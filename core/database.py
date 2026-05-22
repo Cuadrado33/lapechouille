@@ -25,18 +25,24 @@ def _uid() -> str | None:
 
 # ── Chargement ───────────────────────────────────────────────────
 @st.cache_data(ttl=30, show_spinner=False)
-def load_sessions() -> pd.DataFrame:
-    uid = _uid()
-    if not uid: return pd.DataFrame()
+def _load_sessions_cached(uid: str) -> pd.DataFrame:
     rows = supabase_get("sessions", {"user_id": f"eq.{uid}", "order": "date_session.desc"})
     return pd.DataFrame(rows) if rows else pd.DataFrame()
 
+def load_sessions() -> pd.DataFrame:
+    uid = _uid()
+    if not uid: return pd.DataFrame()
+    return _load_sessions_cached(uid)
+
 @st.cache_data(ttl=30, show_spinner=False)
+def _load_captures_cached(uid: str) -> pd.DataFrame:
+    rows = supabase_get("captures", {"user_id": f"eq.{uid}", "order": "created_at.desc"})
+    return pd.DataFrame(rows) if rows else pd.DataFrame()
+
 def load_captures() -> pd.DataFrame:
     uid = _uid()
     if not uid: return pd.DataFrame()
-    rows = supabase_get("captures", {"user_id": f"eq.{uid}", "order": "created_at.desc"})
-    return pd.DataFrame(rows) if rows else pd.DataFrame()
+    return _load_captures_cached(uid)
 
 def load_captures_for_session(session_id: int) -> pd.DataFrame:
     rows = supabase_get("captures", {
@@ -46,32 +52,44 @@ def load_captures_for_session(session_id: int) -> pd.DataFrame:
     return pd.DataFrame(rows) if rows else pd.DataFrame()
 
 @st.cache_data(ttl=30, show_spinner=False)
-def load_spots() -> pd.DataFrame:
-    uid = _uid()
-    if not uid: return pd.DataFrame()
+def _load_spots_cached(uid: str) -> pd.DataFrame:
     rows = supabase_get("spots", {"user_id": f"eq.{uid}", "order": "created_at.desc"})
     return pd.DataFrame(rows) if rows else pd.DataFrame()
 
-@st.cache_data(ttl=30, show_spinner=False)
-def load_bait_spots() -> pd.DataFrame:
+def load_spots() -> pd.DataFrame:
     uid = _uid()
     if not uid: return pd.DataFrame()
+    return _load_spots_cached(uid)
+
+@st.cache_data(ttl=30, show_spinner=False)
+def _load_bait_spots_cached(uid: str) -> pd.DataFrame:
     rows = supabase_get("bait_spots", {"user_id": f"eq.{uid}", "order": "created_at.desc"})
     return pd.DataFrame(rows) if rows else pd.DataFrame()
 
-@st.cache_data(ttl=30, show_spinner=False)
-def load_materiel() -> pd.DataFrame:
+def load_bait_spots() -> pd.DataFrame:
     uid = _uid()
     if not uid: return pd.DataFrame()
-    rows = supabase_get("materiel", {"user_id": f"eq.{uid}", "order": "created_at.desc"})
+    return _load_bait_spots_cached(uid)
+
+@st.cache_data(ttl=30, show_spinner=False)
+def load_materiel(categorie: str = None) -> pd.DataFrame:
+    uid = _uid()
+    if not uid: return pd.DataFrame()
+    params = {"user_id": f"eq.{uid}", "order": "created_at.desc"}
+    if categorie:
+        params["categorie"] = f"ilike.*{categorie}*"
+    rows = supabase_get("materiel", params)
     return pd.DataFrame(rows) if rows else pd.DataFrame()
 
 @st.cache_data(ttl=30, show_spinner=False)
+def _load_multimedia_cached(uid: str) -> pd.DataFrame:
+    rows = supabase_get("multimedia", {"user_id": f"eq.{uid}", "order": "created_at.desc"})
+    return pd.DataFrame(rows) if rows else pd.DataFrame()
+
 def load_multimedia() -> pd.DataFrame:
     uid = _uid()
     if not uid: return pd.DataFrame()
-    rows = supabase_get("multimedia", {"user_id": f"eq.{uid}", "order": "created_at.desc"})
-    return pd.DataFrame(rows) if rows else pd.DataFrame()
+    return _load_multimedia_cached(uid)
 
 @st.cache_data(ttl=60, show_spinner=False)
 def load_profil() -> dict:
@@ -118,11 +136,23 @@ def delete_session(sess_id: int) -> bool:
 def save_profil(data: dict) -> bool:
     uid = _uid()
     if not uid: return False
-    data["id"] = uid
-    hdrs = {**get_headers(), "Prefer": "return=representation,resolution=merge-duplicates"}
-    r = requests.post(f"{SUPABASE_URL}/rest/v1/profils", headers=hdrs, json=data, timeout=10)
+    # Utiliser PATCH pour mettre à jour sans conflit sur email/pseudo uniques
+    data.pop("id", None)
+    data.pop("email", None)      # Ne jamais modifier l'email via ce formulaire
+    data.pop("mot_de_passe", None)  # Ne jamais modifier le mot de passe ici
+    r = requests.patch(
+        f"{SUPABASE_URL}/rest/v1/profils",
+        headers={**get_headers(), "Prefer": "return=representation"},
+        params={"id": f"eq.{uid}"},
+        json=data,
+        timeout=10,
+    )
+    if r.status_code not in (200, 204):
+        import streamlit as _st
+        _st.error(f"Erreur Supabase {r.status_code} : {r.text[:300]}")
+        return False
     st.cache_data.clear()
-    return r.status_code in (200, 201)
+    return True
 
 def next_capture_number(session_id: int) -> int:
     rows = supabase_get("captures", {
