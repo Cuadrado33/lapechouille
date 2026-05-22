@@ -132,3 +132,8 @@ def load_captures_for_session(session_id: int) -> pd.DataFrame:
         "order": "capture_num.asc",
     })
     return pd.DataFrame(rows) if rows else pd.DataFrame()
+
+PHOTOS_DIR = 'photos_captures'
+MATERIEL_DIR = 'photos_materiel'
+MULTIMEDIA_DIR = 'photos_multimedia'
+SPOTS_DIR = 'photos_spots'
