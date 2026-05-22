@@ -853,58 +853,71 @@ def _render_session_captures(sid: int, terminee: bool) -> None:
     st.caption(f"**{nb} capture(s)** · Clique sur ✏️ pour modifier")
 
     for i, (_, cap) in enumerate(caps.iterrows()):
-        cap_id     = int(cap["id"])
-        espece     = safe_str(cap.get("espece")) or "—"
-        taille     = safe_float(cap.get("taille_cm"))
-        poids_txt  = format_weight_display(cap)
-        heure      = safe_str(cap.get("heure_capture")) or "—"
-        photo_path = safe_str(cap.get("photo_path"))
-        relache    = bool(cap.get("relache"))
-        trophee    = bool(cap.get("poisson_trophee") or cap.get("poisson_trophe"))
-        appat      = safe_str(cap.get("appat")) or "—"
+        cap_id      = int(cap["id"])
+        espece      = safe_str(cap.get("espece")) or "—"
+        taille      = safe_float(cap.get("taille_cm"))
+        poids_txt   = format_weight_display(cap)
+        heure       = safe_str(cap.get("heure_capture")) or "—"
+        photo_path  = safe_str(cap.get("photo_path"))
+        relache     = bool(cap.get("relache"))
+        trophee     = bool(cap.get("poisson_trophee") or cap.get("poisson_trophe"))
+        appat       = safe_str(cap.get("appat")) or "—"
         commentaire = safe_str(cap.get("commentaire"))
-
-        trophee_badge = ('<span style="background:#FFD54F;color:#5d4f1a;font-size:10px;'
-                          'font-weight:700;padding:2px 7px;border-radius:8px;'
-                          'margin-right:4px;">🏆 TROPHÉE</span>') if trophee else ""
-        rel_badge = ('<span style="background:#E8F5E9;color:#2E7D32;font-size:10px;'
-                      'font-weight:700;padding:2px 7px;border-radius:8px;">↩️ Relâché</span>') \
-                    if relache else \
-                    ('<span style="background:#E3F2FD;color:#1565C0;font-size:10px;'
-                      'font-weight:700;padding:2px 7px;border-radius:8px;">📦 Gardé</span>')
+        montage     = safe_str(cap.get("montage"))
 
         with st.container(border=True):
-            # Bandeau de la capture avec heure bien visible
+            # Bandeau bleu titre
+            trophee_icon = " 🏆" if trophee else ""
+            garde_icon   = "↩️ Relâché" if relache else "📦 Gardé"
             st.markdown(
-                f'<div style="display:flex;justify-content:space-between;'
-                f'align-items:center;flex-wrap:wrap;gap:8px;'
-                f'background:#F5F7FA;border-radius:6px;'
-                f'padding:7px 12px;margin-bottom:8px;">'
-                f'<div><strong style="font-size:14px;">#{i+1} · {espece}</strong>'
-                f'&nbsp;&nbsp;{trophee_badge}{rel_badge}</div>'
-                f'<div style="background:#1565C0;color:#fff;font-size:13px;'
-                f'font-weight:800;padding:3px 12px;border-radius:8px;">'
-                f'🕐 {heure}</div>'
+                f'<div style="background:linear-gradient(135deg,#1565C0,#0c2340);'
+                f'color:#fff;padding:6px 12px;border-radius:6px;margin-bottom:10px;'
+                f'display:flex;justify-content:space-between;align-items:center;">'
+                f'<span style="font-size:14px;font-weight:800;">🐟 {espece}{trophee_icon}</span>'
+                f'<span style="font-size:12px;opacity:.9;">🕐 {heure} · {garde_icon}</span>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
-            c_photo, c_main, c_specs, c_act = st.columns([1, 2.5, 1.5, 1])
 
-            with c_photo:
-                if photo_path and (str(photo_path).startswith("http") or Path(photo_path).exists()):
-                    st.image(photo_path, use_container_width=True)
-                else:
-                    # Pas de photo : SVG fabriqué via helper centralisé
-                    from data.fish_data import get_fish_visual
-                    visual_html = get_fish_visual(espece, size=110)
-                    _comp.html(
-                        f'<div style="display:flex;align-items:center;justify-content:center;'
-                        f'aspect-ratio:1;">{visual_html}</div>',
-                        height=120, scrolling=False,
-                    )
+            c_left, c_right = st.columns([1, 2])
 
-            with c_main:
-                st.markdown(f"### {espece}")
+            with c_left:
+                # SVG toujours visible
+                from data.fish_data import get_fish_visual
+                _comp.html(
+                    f'<div style="display:flex;align-items:center;justify-content:center;'
+                    f'background:#f5f9ff;border-radius:6px;padding:4px;">'
+                    f'{get_fish_visual(espece, size=90)}</div>',
+                    height=80, scrolling=False,
+                )
+                # Photo cliquable avec lightbox
+                if photo_path and str(photo_path).startswith("http"):
+                    lb_id = f"lb_cap_{cap_id}"
+                    _comp.html(f"""
+<img src="{photo_path}" onclick="document.getElementById('{lb_id}').style.display='flex'"
+  style="width:100%;max-height:200px;object-fit:contain;border-radius:6px;
+  margin-top:6px;cursor:pointer;" loading="lazy">
+<div id="{lb_id}" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);
+  z-index:9999;align-items:center;justify-content:center;flex-direction:column;">
+  <img src="{photo_path}" style="max-width:90vw;max-height:85vh;object-fit:contain;border-radius:8px;">
+  <button onclick="document.getElementById('{lb_id}').style.display='none'"
+    style="margin-top:14px;background:rgba(255,255,255,.2);color:#fff;border:none;
+    padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;">✕ Fermer</button>
+</div>
+""", height=220, scrolling=False)
+
+            with c_right:
+                # Pastilles taille/poids
+                st.markdown(
+                    f'<div style="margin-bottom:8px;">'
+                    f'<span style="background:#E3F2FD;color:#1565C0;font-size:12px;font-weight:700;'
+                    f'padding:3px 10px;border-radius:10px;margin-right:6px;">📏 {taille:.0f} cm</span>'
+                    f'<span style="background:#FFF3E0;color:#E65100;font-size:12px;font-weight:700;'
+                    f'padding:3px 10px;border-radius:10px;">{poids_txt}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+                # Appât
                 appat_svg = next((APPAT_SVG_MAP[k] for k in APPAT_SVG_MAP if k.lower() in appat.lower()), "")
                 if appat_svg:
                     _comp.html(
@@ -914,58 +927,41 @@ def _render_session_captures(sid: int, terminee: bool) -> None:
                         height=36, scrolling=False,
                     )
                 else:
-                    st.caption(f"🪱 Appât : **{appat}**")
-                if safe_str(cap.get("montage")):
-                    st.caption(f"🧵 Montage : {cap.get('montage')}")
+                    st.caption(f"🪱 {appat}")
+                if montage: st.caption(f"🧵 {montage}")
 
-                # Matériel utilisé pour cette capture
-                mat_parts = []
-                if safe_str(cap.get("canne")):
-                    mat_parts.append(f"🎯 {cap['canne']}")
-                if safe_str(cap.get("moulinet")):
-                    mat_parts.append(f"⚙️ {cap['moulinet']}")
-                if safe_str(cap.get("bobine_moulinet")):
-                    mat_parts.append(f"🧵 {cap['bobine_moulinet']}")
-                if mat_parts:
-                    st.caption(" · ".join(mat_parts))
+                # Matériel
+                mat = []
+                if safe_str(cap.get("canne")):    mat.append(f"🎯 {cap['canne']}")
+                if safe_str(cap.get("moulinet")): mat.append(f"⚙️ {cap['moulinet']}")
+                if mat: st.caption(" · ".join(mat))
 
                 # Hameçon
-                ham_parts = []
-                if safe_str(cap.get("marque_hamecon")):
-                    ham_parts.append(safe_str(cap["marque_hamecon"]))
-                if safe_str(cap.get("modele_hamecon")):
-                    ham_parts.append(safe_str(cap["modele_hamecon"]))
-                if safe_str(cap.get("taille_hamecon")):
-                    ham_parts.append(f"#{cap['taille_hamecon']}")
-                if ham_parts:
-                    st.caption(f"🪝 {' '.join(ham_parts)}")
+                ham = " ".join(filter(None, [
+                    safe_str(cap.get("marque_hamecon")),
+                    safe_str(cap.get("modele_hamecon")),
+                    f"#{cap['taille_hamecon']}" if safe_str(cap.get("taille_hamecon")) else "",
+                ]))
+                if ham: st.caption(f"🪝 {ham}")
 
-                if safe_str(cap.get("distance_lancer_m")):
-                    d_val = safe_float(cap.get("distance_lancer_m"))
-                    if d_val and d_val > 0:
-                        st.caption(f"🎯 Distance : {d_val:.0f} m")
+                dist = safe_float(cap.get("distance_lancer_m"))
+                if dist: st.caption(f"📐 {dist:.0f} m")
+                if commentaire: st.caption(f"💬 {commentaire}")
 
-                if commentaire:
-                    st.caption(f"💬 {commentaire}")
-
-            with c_specs:
-                st.metric("Taille", f"{taille:.0f} cm" if taille else "—")
-                st.metric("Poids",  poids_txt)
-
-            with c_act:
-                edit_cap_key = f"cap_edit_open_{cap_id}"
-                lbl_e = "✕" if st.session_state.get(edit_cap_key) else "✏️"
-                if st.button(lbl_e, key=f"cap_edit_btn_{cap_id}", use_container_width=True,
-                              help="Modifier cette capture"):
-                    st.session_state[edit_cap_key] = not st.session_state.get(edit_cap_key, False)
-                    st.rerun()
-                if st.button("📋", key=f"cap_copy_{cap_id}", use_container_width=True,
-                              help="Copier cette capture (créer une nouvelle identique)"):
-                    _duplicate_capture(cap, sid)
-                    st.rerun()
-                if st.button("🗑️ Supprimer", key=f"cap_del_{cap_id}", use_container_width=True,
-                              help="Supprimer"):
-                    st.session_state[f"confirm_cap_{cap_id}"] = True
+            # Boutons actions sous les infos
+            ca, cb, cc = st.columns(3)
+            edit_cap_key = f"cap_edit_open_{cap_id}"
+            if ca.button("✏️ Modifier", key=f"cap_edit_btn_{cap_id}",
+                          use_container_width=True):
+                st.session_state[edit_cap_key] = not st.session_state.get(edit_cap_key, False)
+                st.rerun()
+            if cb.button("📋 Copier", key=f"cap_copy_{cap_id}",
+                          use_container_width=True):
+                _duplicate_capture(cap, sid)
+                st.rerun()
+            if cc.button("🗑️ Suppr.", key=f"cap_del_{cap_id}",
+                          use_container_width=True):
+                st.session_state[f"confirm_cap_{cap_id}"] = True
 
             if st.session_state.get(f"confirm_cap_{cap_id}"):
                 if confirm_destructive(f"cap_{cap_id}", f"Supprimer cette capture ({espece}) ?"):
