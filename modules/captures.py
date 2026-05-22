@@ -336,35 +336,31 @@ def _render_captures_by_session(sessions: pd.DataFrame) -> None:
         photo_path = safe_str(row.get("photo_path"))
         relache    = bool(row.get("relache"))
         trophee    = bool(row.get("poisson_trophee") or row.get("poisson_trophe"))
-        appat      = safe_str(row.get("appat")) or "—"
+        appat      = safe_str(row.get("appat")) or ""
+        montage    = safe_str(row.get("montage")) or ""
+        canne      = safe_str(row.get("canne")) or ""
+        moulinet   = safe_str(row.get("moulinet")) or ""
+        dist       = safe_float(row.get("distance_lancer_m"))
+        commentaire= safe_str(row.get("commentaire")) or ""
+        ham        = " ".join(filter(None, [
+            safe_str(row.get("marque_hamecon")),
+            safe_str(row.get("modele_hamecon")),
+            f"#{row['taille_hamecon']}" if safe_str(row.get("taille_hamecon")) else "",
+        ]))
 
-        trophee_icon = "🏆 " if trophee else ""
-        garde_icon   = "📦 Gardé" if not relache else "↩️ Relâché"
+        trophee_badge = '<span style="background:#FFD54F;color:#5d3a00;font-size:10px;font-weight:700;padding:2px 6px;border-radius:6px;margin-right:4px;">🏆 Trophée</span>' if trophee else ""
+        garde_badge   = '<span style="background:#E8F5E9;color:#2E7D32;font-size:10px;font-weight:700;padding:2px 6px;border-radius:6px;">↩️ Relâché</span>' if relache else '<span style="background:#E3F2FD;color:#1565C0;font-size:10px;font-weight:700;padding:2px 6px;border-radius:6px;">📦 Gardé</span>'
 
-        with st.container(border=True):
-            # ── Bandeau titre bleu ──────────────────────────────────
-            st.markdown(
-                f'<div style="background:linear-gradient(135deg,#1565C0,#0c2340);'
-                f'color:#fff;padding:6px 12px;border-radius:6px;margin-bottom:8px;'
-                f'display:flex;align-items:center;gap:8px;">'
-                f'<span style="font-size:13px;font-weight:800;">{trophee_icon}🐟 {espece}</span>'
-                f'<span style="font-size:11px;opacity:.85;margin-left:auto;">'
-                f'🕐 {heure} · {garde_icon}</span>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
+        from data.fish_data import get_fish_visual
+        svg_html = get_fish_visual(espece, size=70)
 
-            # ── SVG + photo dans un seul html ───────────────────────
-            from data.fish_data import get_fish_visual
-            svg_html = get_fish_visual(espece, size=80)
-            photo_html = ""
-            if photo_path and str(photo_path).startswith("http"):
-                lb_id = f"lb_bs_{cap_id}"
-                photo_html = f"""
-<img src="{photo_path}"
-  onclick="document.getElementById('{lb_id}').style.display='flex'"
-  style="width:100%;max-height:220px;object-fit:contain;border-radius:6px;
-  margin-top:6px;cursor:pointer;display:block;">
+        lb_id = f"lb_cap_{cap_id}"
+        photo_block = ""
+        if photo_path and str(photo_path).startswith("http"):
+            photo_block = f"""
+<img src="{photo_path}" onclick="document.getElementById('{lb_id}').style.display='flex'"
+  style="width:100%;max-height:240px;object-fit:contain;border-radius:8px;
+  margin:8px 0;cursor:pointer;background:#f0f4f8;display:block;">
 <div id="{lb_id}" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);
   z-index:9999;align-items:center;justify-content:center;flex-direction:column;">
   <img src="{photo_path}" style="max-width:90vw;max-height:85vh;object-fit:contain;border-radius:8px;">
@@ -373,61 +369,45 @@ def _render_captures_by_session(sessions: pd.DataFrame) -> None:
     padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;">✕ Fermer</button>
 </div>"""
 
-            _comp.html(
-                f'<div style="background:#f5f9ff;border-radius:6px;padding:8px;margin-bottom:8px;">'
-                f'<div style="display:flex;align-items:center;justify-content:center;">{svg_html}</div>'
-                f'{photo_html}'
-                f'</div>',
-                height=120 + (240 if photo_path and str(photo_path).startswith("http") else 0),
-                scrolling=False,
-            )
+        # Infos lignes
+        infos_lines = []
+        if taille:   infos_lines.append(f'<span style="background:#E3F2FD;color:#1565C0;font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;margin-right:4px;">📏 {taille:.0f} cm</span><span style="background:#FFF3E0;color:#E65100;font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;">{poids_txt}</span>')
+        if appat:    infos_lines.append(f'<span style="font-size:11px;color:#546E7A;">🪱 {appat}</span>')
+        if montage:  infos_lines.append(f'<span style="font-size:11px;color:#546E7A;">🧵 {montage}</span>')
+        if canne:    infos_lines.append(f'<span style="font-size:11px;color:#546E7A;">🎯 {canne}</span>')
+        if moulinet: infos_lines.append(f'<span style="font-size:11px;color:#546E7A;">⚙️ {moulinet}</span>')
+        if ham:      infos_lines.append(f'<span style="font-size:11px;color:#546E7A;">🪝 {ham}</span>')
+        if dist:     infos_lines.append(f'<span style="font-size:11px;color:#546E7A;">📐 {dist:.0f} m</span>')
+        if commentaire: infos_lines.append(f'<span style="font-size:11px;color:#546E7A;font-style:italic;">💬 {commentaire}</span>')
 
-            # ── Pastilles taille/poids ──────────────────────────────
-            st.markdown(
-                f'<div style="margin-bottom:6px;">'
-                f'<span style="background:#E3F2FD;color:#1565C0;font-size:12px;font-weight:700;'
-                f'padding:3px 10px;border-radius:10px;margin-right:4px;">📏 {taille:.0f} cm</span>'
-                f'<span style="background:#FFF3E0;color:#E65100;font-size:12px;font-weight:700;'
-                f'padding:3px 10px;border-radius:10px;">{poids_txt}</span>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
+        infos_html = "".join(f'<div style="margin:3px 0;">{l}</div>' for l in infos_lines)
+        h_total = 200 + (250 if photo_block else 0)
 
-            # ── Infos texte ─────────────────────────────────────────
-            appat_svg = next((APPAT_SVG_MAP[k] for k in APPAT_SVG_MAP if k.lower() in appat.lower()), "")
-            if appat_svg:
-                _comp.html(
-                    f'<div style="display:inline-flex;align-items:center;gap:6px;'
-                    f'font-size:12px;color:#444;margin-bottom:4px;">'
-                    f'{icon_box(appat_svg, 24)} <b>{appat}</b></div>',
-                    height=32, scrolling=False,
-                )
-            elif appat and appat != "—":
-                st.caption(f"🪱 {appat}")
+        with st.container(border=True):
+            _comp.html(f"""
+<div style="font-family:system-ui,sans-serif;">
+  <!-- Bandeau titre -->
+  <div style="background:linear-gradient(135deg,#1565C0,#0c2340);color:#fff;
+    padding:7px 12px;border-radius:8px;margin-bottom:10px;
+    display:flex;justify-content:space-between;align-items:center;">
+    <span style="font-size:13px;font-weight:800;">🐟 {espece}</span>
+    <span style="font-size:11px;opacity:.9;">🕐 {heure}</span>
+  </div>
+  <!-- Badges -->
+  <div style="margin-bottom:8px;">{trophee_badge}{garde_badge}</div>
+  <!-- SVG poisson -->
+  <div style="background:#f0f6ff;border-radius:8px;padding:8px;
+    display:flex;align-items:center;justify-content:center;margin-bottom:6px;">
+    {svg_html}
+  </div>
+  <!-- Photo cliquable -->
+  {photo_block}
+  <!-- Infos -->
+  <div style="margin:6px 0;">{infos_html}</div>
+</div>
+""", height=h_total, scrolling=False)
 
-            montage = safe_str(row.get("montage"))
-            if montage: st.caption(f"🧵 {montage}")
-
-            mat = []
-            if safe_str(row.get("canne")):           mat.append(f"🎯 {row['canne']}")
-            if safe_str(row.get("moulinet")):        mat.append(f"⚙️ {row['moulinet']}")
-            if safe_str(row.get("bobine_moulinet")): mat.append(f"🧵 {row['bobine_moulinet']}")
-            if mat: st.caption(" · ".join(mat))
-
-            ham = " ".join(filter(None, [
-                safe_str(row.get("marque_hamecon")),
-                safe_str(row.get("modele_hamecon")),
-                f"#{row['taille_hamecon']}" if safe_str(row.get("taille_hamecon")) else "",
-            ]))
-            if ham: st.caption(f"🪝 {ham}")
-
-            dist = row.get("distance_lancer_m")
-            if dist: st.caption(f"📐 {float(dist):.0f} m")
-
-            if safe_str(row.get("commentaire")):
-                st.caption(f"💬 {safe_str(row.get('commentaire'))}")
-
-            # ── Boutons ─────────────────────────────────────────────
+            # Boutons natifs Streamlit (hors HTML pour fonctionner)
             edit_key = f"cap_edit_open_{cap_id}"
             c1, c2 = st.columns(2)
             if c1.button("✏️ Modifier", key=f"cap_edit_btn_{cap_id}", use_container_width=True):
