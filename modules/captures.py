@@ -338,99 +338,103 @@ def _render_captures_by_session(sessions: pd.DataFrame) -> None:
         trophee    = bool(row.get("poisson_trophee") or row.get("poisson_trophe"))
         appat      = safe_str(row.get("appat")) or "—"
 
-        trophee_icon = "🏆 Trophée · " if trophee else ""
+        trophee_icon = "🏆 " if trophee else ""
         garde_icon   = "📦 Gardé" if not relache else "↩️ Relâché"
 
         with st.container(border=True):
-            # Titre en bleu comme les sections
+            # ── Bandeau titre bleu ──────────────────────────────────
             st.markdown(
                 f'<div style="background:linear-gradient(135deg,#1565C0,#0c2340);'
                 f'color:#fff;padding:6px 12px;border-radius:6px;margin-bottom:8px;'
                 f'display:flex;align-items:center;gap:8px;">'
-                f'<span style="font-size:13px;font-weight:800;">🐟 {espece}</span>'
-                f'<span style="font-size:11px;opacity:.85;">· 🕐 {heure}</span>'
+                f'<span style="font-size:13px;font-weight:800;">{trophee_icon}🐟 {espece}</span>'
                 f'<span style="font-size:11px;opacity:.85;margin-left:auto;">'
-                f'{trophee_icon}{garde_icon}</span>'
+                f'🕐 {heure} · {garde_icon}</span>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
-            c_visual, c_main, c_actions = st.columns([1.5, 3.5, 1])
 
-            with c_visual:
-                from data.fish_data import get_fish_visual
-                visual_html = get_fish_visual(espece, size=100)
+            # ── SVG + photo dans un seul html ───────────────────────
+            from data.fish_data import get_fish_visual
+            svg_html = get_fish_visual(espece, size=80)
+            photo_html = ""
+            if photo_path and str(photo_path).startswith("http"):
+                lb_id = f"lb_bs_{cap_id}"
+                photo_html = f"""
+<img src="{photo_path}"
+  onclick="document.getElementById('{lb_id}').style.display='flex'"
+  style="width:100%;max-height:220px;object-fit:contain;border-radius:6px;
+  margin-top:6px;cursor:pointer;display:block;">
+<div id="{lb_id}" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);
+  z-index:9999;align-items:center;justify-content:center;flex-direction:column;">
+  <img src="{photo_path}" style="max-width:90vw;max-height:85vh;object-fit:contain;border-radius:8px;">
+  <button onclick="document.getElementById('{lb_id}').style.display='none'"
+    style="margin-top:14px;background:rgba(255,255,255,.2);color:#fff;border:none;
+    padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;">✕ Fermer</button>
+</div>"""
+
+            _comp.html(
+                f'<div style="background:#f5f9ff;border-radius:6px;padding:8px;margin-bottom:8px;">'
+                f'<div style="display:flex;align-items:center;justify-content:center;">{svg_html}</div>'
+                f'{photo_html}'
+                f'</div>',
+                height=120 + (240 if photo_path and str(photo_path).startswith("http") else 0),
+                scrolling=False,
+            )
+
+            # ── Pastilles taille/poids ──────────────────────────────
+            st.markdown(
+                f'<div style="margin-bottom:6px;">'
+                f'<span style="background:#E3F2FD;color:#1565C0;font-size:12px;font-weight:700;'
+                f'padding:3px 10px;border-radius:10px;margin-right:4px;">📏 {taille:.0f} cm</span>'
+                f'<span style="background:#FFF3E0;color:#E65100;font-size:12px;font-weight:700;'
+                f'padding:3px 10px;border-radius:10px;">{poids_txt}</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+            # ── Infos texte ─────────────────────────────────────────
+            appat_svg = next((APPAT_SVG_MAP[k] for k in APPAT_SVG_MAP if k.lower() in appat.lower()), "")
+            if appat_svg:
                 _comp.html(
-                    f'<div style="display:flex;align-items:center;justify-content:center;">'
-                    f'{visual_html}</div>',
-                    height=80, scrolling=False,
+                    f'<div style="display:inline-flex;align-items:center;gap:6px;'
+                    f'font-size:12px;color:#444;margin-bottom:4px;">'
+                    f'{icon_box(appat_svg, 24)} <b>{appat}</b></div>',
+                    height=32, scrolling=False,
                 )
-                # Photo portrait
-                if photo_path and str(photo_path).startswith("http"):
-                    _comp.html(
-                        f'<img src="{photo_path}" style="width:100%;max-height:180px;'
-                        f'object-fit:contain;border-radius:6px;margin-top:4px;"'
-                        f'loading="lazy">',
-                        height=188, scrolling=False,
-                    )
+            elif appat and appat != "—":
+                st.caption(f"🪱 {appat}")
 
-            with c_main:
-                # Taille/poids en pastilles
-                st.markdown(
-                    f'<div style="margin-bottom:6px;">'
-                    f'<span style="background:#E3F2FD;color:#1565C0;font-size:12px;font-weight:700;'
-                    f'padding:3px 10px;border-radius:10px;margin-right:4px;">📏 {taille:.0f} cm</span>'
-                    f'<span style="background:#FFF3E0;color:#E65100;font-size:12px;font-weight:700;'
-                    f'padding:3px 10px;border-radius:10px;">{poids_txt}</span>'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
-                # Appât
-                appat_svg = next((APPAT_SVG_MAP[k] for k in APPAT_SVG_MAP if k.lower() in appat.lower()), "")
-                if appat_svg:
-                    _comp.html(
-                        f'<div style="display:inline-flex;align-items:center;gap:6px;'
-                        f'font-size:12px;color:#444;margin-bottom:4px;">'
-                        f'{icon_box(appat_svg, 28)} <b>{appat}</b></div>',
-                        height=36, scrolling=False,
-                    )
-                elif appat:
-                    st.caption(f"🪱 {appat}")
+            montage = safe_str(row.get("montage"))
+            if montage: st.caption(f"🧵 {montage}")
 
-                # Montage
-                montage = safe_str(row.get("montage"))
-                if montage: st.caption(f"🧵 {montage}")
+            mat = []
+            if safe_str(row.get("canne")):           mat.append(f"🎯 {row['canne']}")
+            if safe_str(row.get("moulinet")):        mat.append(f"⚙️ {row['moulinet']}")
+            if safe_str(row.get("bobine_moulinet")): mat.append(f"🧵 {row['bobine_moulinet']}")
+            if mat: st.caption(" · ".join(mat))
 
-                # Matériel
-                mat = []
-                if safe_str(row.get("canne")):           mat.append(f"🎯 {row['canne']}")
-                if safe_str(row.get("moulinet")):        mat.append(f"⚙️ {row['moulinet']}")
-                if safe_str(row.get("bobine_moulinet")): mat.append(f"🧵 {row['bobine_moulinet']}")
-                if mat: st.caption(" · ".join(mat))
+            ham = " ".join(filter(None, [
+                safe_str(row.get("marque_hamecon")),
+                safe_str(row.get("modele_hamecon")),
+                f"#{row['taille_hamecon']}" if safe_str(row.get("taille_hamecon")) else "",
+            ]))
+            if ham: st.caption(f"🪝 {ham}")
 
-                # Hameçon
-                ham = " ".join(filter(None, [
-                    safe_str(row.get("marque_hamecon")),
-                    safe_str(row.get("modele_hamecon")),
-                    f"#{row['taille_hamecon']}" if safe_str(row.get("taille_hamecon")) else "",
-                ]))
-                if ham: st.caption(f"🪝 {ham}")
+            dist = row.get("distance_lancer_m")
+            if dist: st.caption(f"📐 {float(dist):.0f} m")
 
-                # Distance
-                dist = row.get("distance_lancer_m")
-                if dist: st.caption(f"📐 {float(dist):.0f} m")
+            if safe_str(row.get("commentaire")):
+                st.caption(f"💬 {safe_str(row.get('commentaire'))}")
 
-                # Commentaire
-                if safe_str(row.get("commentaire")):
-                    st.caption(f"💬 {safe_str(row.get('commentaire'))}")
-
-            with c_actions:
-                edit_key = f"cap_edit_open_{cap_id}"
-                lbl_e = "✕" if st.session_state.get(edit_key) else "✏️ Modifier"
-                if st.button(lbl_e, key=f"cap_edit_btn_{cap_id}", use_container_width=True):
-                    st.session_state[edit_key] = not st.session_state.get(edit_key, False)
-                    st.rerun()
-                if st.button("🗑️ Supprimer", key=f"cap_del_{cap_id}", use_container_width=True):
-                    st.session_state[f"confirm_cap_{cap_id}"] = True
+            # ── Boutons ─────────────────────────────────────────────
+            edit_key = f"cap_edit_open_{cap_id}"
+            c1, c2 = st.columns(2)
+            if c1.button("✏️ Modifier", key=f"cap_edit_btn_{cap_id}", use_container_width=True):
+                st.session_state[edit_key] = not st.session_state.get(edit_key, False)
+                st.rerun()
+            if c2.button("🗑️ Supprimer", key=f"cap_del_{cap_id}", use_container_width=True):
+                st.session_state[f"confirm_cap_{cap_id}"] = True
 
             if st.session_state.get(f"confirm_cap_{cap_id}"):
                 if confirm_destructive(f"cap_{cap_id}", f"Supprimer {espece} ?"):
@@ -439,7 +443,6 @@ def _render_captures_by_session(sessions: pd.DataFrame) -> None:
                     st.cache_data.clear()
                     st.rerun()
 
-            # Modification inline — photo HORS form
             if st.session_state.get(edit_key):
                 _render_edit_capture(row, cap_id)
 
