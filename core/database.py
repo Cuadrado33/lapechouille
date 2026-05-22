@@ -137,3 +137,14 @@ PHOTOS_DIR = 'photos_captures'
 MATERIEL_DIR = 'photos_materiel'
 MULTIMEDIA_DIR = 'photos_multimedia'
 SPOTS_DIR = 'photos_spots'
+
+def save_profil(data):
+    from core.supabase_client import SUPABASE_URL, get_headers
+    import requests, streamlit as st
+    uid = st.session_state.get('reseau_user', {}).get('id')
+    if not uid: return False
+    data['id'] = uid
+    hdrs = {**get_headers(), 'Prefer': 'return=representation,resolution=merge-duplicates'}
+    r = requests.post(f'{SUPABASE_URL}/rest/v1/profils', headers=hdrs, json=data, timeout=10)
+    st.cache_data.clear()
+    return r.status_code in (200, 201)
