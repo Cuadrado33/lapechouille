@@ -53,6 +53,8 @@ def _render_list() -> None:
     _render_cards(df, "canne")
 
 def _render_cards(df, kind):
+    import streamlit.components.v1 as _cv
+
     search = st.text_input("Rechercher", placeholder="Marque, modèle...", key=f"search_{kind}")
     if search:
         s = search.lower()
@@ -61,38 +63,130 @@ def _render_cards(df, kind):
     if df.empty:
         st.info("Aucun résultat.")
         return
-    for _, row in df.iterrows():
-        item_id = int(row["id"])
-        photo_path = safe_str(row.get("photo_path")) if "photo_path" in row.index else ""
-        marque = safe_str(row.get("marque")) or "—"
-        modele = safe_str(row.get("modele")) or "—"
-        with st.container(border=True):
-            c_photo, c_main, c_actions = st.columns([1, 3.5, 1.5])
-            with c_photo:
-                if photo_path and str(photo_path).startswith("http"):
-                    import streamlit.components.v1 as _cv
-                    _cv.html(
-                        f'<img src="{photo_path}" style="width:100%;max-height:120px;'
-                        f'object-fit:cover;border-radius:8px;">',
-                        height=128, scrolling=False,
+
+    for row_start in range(0, len(df), 3):
+        row_items = df.iloc[row_start:row_start+3]
+        cols = st.columns(len(row_items))
+
+        for col, (_, row) in zip(cols, row_items.iterrows()):
+            item_id    = int(row["id"])
+            photo_path = safe_str(row.get("photo_path")) if "photo_path" in row.index else ""
+            marque     = safe_str(row.get("marque")) or "—"
+            modele     = safe_str(row.get("modele")) or "—"
+
+            with col:
+                with st.container(border=True):
+                    # Bandeau bleu titre
+                    st.markdown(
+                        f'<div style="background:linear-gradient(135deg,#1565C0,#0c2340);'
+                        f'color:#fff;padding:6px 10px;border-radius:6px;margin-bottom:8px;">'
+                        f'<span style="font-size:13px;font-weight:800;">🎯 {marque}</span>'
+                        f'<div style="font-size:11px;opacity:.85;">{modele}</div>'
+                        f'</div>',
+                        unsafe_allow_html=True,
                     )
-                else:
-                    photo_placeholder()
-            with c_main:
-                st.markdown(f"**{marque} {modele}**")
-                details = []
-                for lbl, k in [("Longueur","longueur_canne"),("Puissance","puissance_canne"),
-                                ("Action","action_canne"),("Scion","type_scion"),("État","etat")]:
-                    v = safe_str(row.get(k)) if k in row.index else ""
-                    if v: details.append(f"{lbl} : {v}")
-                st.caption(" · ".join(details) if details else "")
-            with c_actions:
-                if st.button("🗑️ Supprimer", key=f"del_{kind}_{item_id}", use_container_width=True):
-                    st.session_state[f"confirm_{kind}_{item_id}"] = True
-            if st.session_state.get(f"confirm_{kind}_{item_id}"):
-                if confirm_destructive(f"{kind}_{item_id}", f"Supprimer {marque} {modele} ?"):
-                    delete_row("materiel", item_id)
-                    st.session_state[f"confirm_{kind}_{item_id}"] = False
-                    st.cache_data.clear()
-                    st.success("Supprimé.")
-                    st.rerun()
+
+                    # Photo
+                    if photo_path and str(photo_path).startswith("http"):
+                        _cv.html(
+                            f'<img src="{photo_path}" style="width:100%;height:140px;'
+                            f'object-fit:cover;border-radius:6px;margin-bottom:6px;">',
+                            height=148, scrolling=False,
+                        )
+
+                    # Pastilles caractéristiques
+                    badges = []
+                    for lbl, k, color, bg in [
+                        ("longueur_canne",  "📏", "#1565C0", "#E3F2FD"),
+                        ("puissance_canne", "⚡", "#E65100", "#FFF3E0"),
+                        ("action_canne",    "🎯", "#2E7D32", "#E8F5E9"),
+                        ("type_scion",      "🔧", "#6A1B9A", "#F3E5F5"),
+                    ]:
+                        v = safe_str(row.get(lbl)) if lbl in row.index else ""
+                        if v:
+                            badges.append(
+                                f'<span style="background:{bg};color:{color};'
+                                f'font-size:10px;font-weight:700;padding:2px 7px;'
+                                f'border-radius:8px;margin:2px;">{k} {v}</span>'
+                            )
+                    if badges:
+                        st.markdown(
+                            '<div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px;">'
+                            + "".join(badges) + '</div>',
+                            unsafe_allow_html=True,
+                        )
+
+                    # État
+                    etat = safe_str(row.get("etat")) if "etat" in row.index else ""
+                    if etat:
+                        etat_color = {"Neuf":"#2E7D32","Bon état":"#1565C0",
+                                      "Usé":"#E65100","À remplacer":"#C62828"}.get(etat,"#546E7A")
+                        st.markdown(
+                            f'<span style="background:{etat_color}22;color:{etat_color};'
+                            f'font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;">'
+                            f'{etat}</span>',
+                            unsafe_allow_html=True,
+                        )
+
+                    com = safe_str(row.get("commentaire")) if "commentaire" in row.index else ""
+                    if com:
+                        st.caption(f"💬 {com}")
+
+                    # Boutons Modifier / Supprimer
+                    ca, cb = st.columns(2)
+                    edit_key = f"edit_{kind}_{item_id}"
+                    if ca.button("✏️", key=f"edit_btn_{kind}_{item_id}",
+                                  use_container_width=True, help="Modifier"):
+                        st.session_state[edit_key] = not st.session_state.get(edit_key, False)
+                        st.rerun()
+                    if cb.button("🗑️", key=f"del_{kind}_{item_id}",
+                                  use_container_width=True, help="Supprimer"):
+                        st.session_state[f"confirm_{kind}_{item_id}"] = True
+
+                    if st.session_state.get(f"confirm_{kind}_{item_id}"):
+                        if confirm_destructive(f"{kind}_{item_id}", f"Supprimer {marque} {modele} ?"):
+                            delete_row("materiel", item_id)
+                            st.session_state[f"confirm_{kind}_{item_id}"] = False
+                            st.cache_data.clear()
+                            st.rerun()
+
+                    if st.session_state.get(edit_key):
+                        _render_edit(row, item_id, kind)
+
+
+def _render_edit(row, item_id: int, kind: str) -> None:
+    """Formulaire d'édition inline d'une canne."""
+    with st.form(f"edit_form_{kind}_{item_id}"):
+        st.markdown("**✏️ Modifier cette canne**")
+        c1, c2 = st.columns(2)
+        marque   = c1.text_input("Marque",    value=safe_str(row.get("marque")),          key=f"em_marque_{item_id}")
+        modele   = c2.text_input("Modèle",    value=safe_str(row.get("modele")),           key=f"em_modele_{item_id}")
+        longueur = c1.text_input("Longueur",  value=safe_str(row.get("longueur_canne")),  key=f"em_long_{item_id}")
+        puissance= c2.text_input("Puissance", value=safe_str(row.get("puissance_canne")), key=f"em_puis_{item_id}")
+        from data.constants import TYPES_SCION, ACTIONS_CANNE, ETATS_MATERIEL
+        scion    = c1.selectbox("Scion",  TYPES_SCION,    key=f"em_scion_{item_id}")
+        action   = c2.selectbox("Action", ACTIONS_CANNE,  key=f"em_action_{item_id}")
+        etat     = st.selectbox("État",   ETATS_MATERIEL, key=f"em_etat_{item_id}")
+        com      = st.text_area("Commentaire", value=safe_str(row.get("commentaire")),    key=f"em_com_{item_id}")
+        if st.form_submit_button("💾 Sauvegarder", use_container_width=True, type="primary"):
+            update_row("materiel", item_id, {
+                "marque": marque, "modele": modele,
+                "longueur_canne": longueur, "puissance_canne": puissance,
+                "type_scion": scion, "action_canne": action,
+                "etat": etat, "commentaire": com,
+            })
+            st.session_state.pop(f"edit_canne_{item_id}", None)
+            st.cache_data.clear()
+            st.success("✅ Canne mise à jour.")
+            st.rerun()
+
+    # Photo
+    st.markdown("**📸 Changer la photo**")
+    new_photo = photo_inputs(f"ep_{kind}_{item_id}")
+    if new_photo:
+        pp = save_materiel_photo(new_photo, item_id, kind)
+        if pp:
+            update_row("materiel", item_id, {"photo_path": pp})
+            st.cache_data.clear()
+            st.success("Photo mise à jour.")
+            st.rerun()
