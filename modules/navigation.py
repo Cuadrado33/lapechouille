@@ -153,7 +153,6 @@ def render_sidebar_navigation() -> None:
                     })
                     if rows:
                         st.session_state["reseau_user"] = rows[0]
-                        st.query_params["uid"] = rows[0]["id"]
                         st.session_state.pop("sidebar_login_open", None)
                         st.rerun()
                     else:

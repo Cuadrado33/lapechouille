@@ -338,10 +338,16 @@ def _render_captures_by_session(sessions: pd.DataFrame) -> None:
             c_photo, c_main, c_specs, c_actions = st.columns([1, 2.5, 1.5, 1.2])
 
             with c_photo:
-                if photo_path and Path(photo_path).exists():
-                    st.image(photo_path, use_container_width=True)
+                if photo_path and (str(photo_path).startswith("http") or Path(photo_path).exists()):
+                    if str(photo_path).startswith("http"):
+                        _comp.html(
+                            f'<img src="{photo_path}" style="width:100%;aspect-ratio:1;'
+                            f'object-fit:cover;border-radius:8px;">',
+                            height=120, scrolling=False,
+                        )
+                    else:
+                        st.image(photo_path, use_container_width=True)
                 else:
-                    # Pas de photo : utiliser le SVG fabriqué (helper centralisé)
                     from data.fish_data import get_fish_visual
                     visual_html = get_fish_visual(espece, size=110)
                     _comp.html(
@@ -622,10 +628,16 @@ def _render_captures_by_fish(sessions: pd.DataFrame) -> None:
             with st.container(border=True):
                 col_img, col_main, col_size = st.columns([1, 3, 1])
                 with col_img:
-                    if photo_path and Path(photo_path).exists():
-                        st.image(photo_path, use_container_width=True)
+                    if photo_path and (str(photo_path).startswith("http") or Path(photo_path).exists()):
+                        if str(photo_path).startswith("http"):
+                            _comp.html(
+                                f'<img src="{photo_path}" style="width:100%;aspect-ratio:1;'
+                                f'object-fit:cover;border-radius:8px;">',
+                                height=110, scrolling=False,
+                            )
+                        else:
+                            st.image(photo_path, use_container_width=True)
                     else:
-                        # SVG fabriqué via helper centralisé
                         from data.fish_data import get_fish_visual
                         visual_html = get_fish_visual(espece, size=100)
                         _comp.html(

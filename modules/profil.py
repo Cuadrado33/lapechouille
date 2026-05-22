@@ -120,18 +120,9 @@ def render() -> None:
     _render_profile_card(profil, photo_path,
                          nb_sessions, nb_captures, nb_saison, espece_top, taille_max, saison)
 
-    # Avatar IA (toggle)
-    if st.session_state.get("pf_avatar_open"):
-        with st.container(border=True):
-            st.markdown("### 🎨 Avatar IA")
-            _render_manga(photo_path)
-            if st.button("✕ Fermer le générateur", key="pf_close_avatar"):
-                st.session_state["pf_avatar_open"] = False
-                st.rerun()
-
     st.divider()
 
-    # ── Formulaire d'édition (une seule fois) ────────────────────────
+    # ── Formulaire d'édition ──────────────────────────────────────────
     section("Modifier mon profil", icon="✏️")
     _render_form(profil, photo_path)
 
@@ -164,9 +155,6 @@ def _render_profile_card(profil, photo_path, nb_sessions, nb_captures,
                 'display:flex;align-items:center;justify-content:center;font-size:52px;">🎣</div>',
                 unsafe_allow_html=True,
             )
-        if st.button("🎨 Avatar IA", key="pf_open_avatar", use_container_width=True, type="primary"):
-            st.session_state["pf_avatar_open"] = not st.session_state.get("pf_avatar_open", False)
-            st.rerun()
 
     # ── Identité + stats ─────────────────────────────────────────────
     with col_main:
@@ -297,24 +285,77 @@ def _render_social_badges(profil: dict) -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _render_form(profil, photo_path):
-    # Photo HORS formulaire (file_uploader incompatible avec st.form)
     with st.container(border=True):
-        st.markdown("**📸 Photo de profil**")
-        col_cam, col_up = st.columns(2)
-        with col_cam:
-            cam = st.camera_input("Prendre une photo", key="pf_cam_widget")
-        with col_up:
-            upl = st.file_uploader("Importer", type=["jpg","jpeg","png","webp"],
-                                   key="pf_photo_upload_widget")
-        new_photo = upl if upl is not None else cam
+        st.markdown(
+            '<div style="background:linear-gradient(135deg,#1565C0,#0c2340);'
+            'color:#fff;padding:8px 14px;border-radius:8px;margin-bottom:10px;">'
+            '<span style="font-size:13px;font-weight:700;">📸 Photo de profil</span>'
+            '</div>', unsafe_allow_html=True,
+        )
+        col_preview, col_upload = st.columns([1, 2])
 
-        # Stocker dans session_state pour survivre au rerun du form submit
-        if new_photo is not None:
-            st.session_state["pf_pending_photo"] = new_photo
-            # Prévisualisation immédiate
-            st.image(new_photo, width=120, caption="Aperçu")
-        elif st.session_state.get("pf_pending_photo") is not None:
-            st.image(st.session_state["pf_pending_photo"], width=120, caption="Aperçu")
+        # Aperçu actuel
+        with col_preview:
+            pending = st.session_state.get("pf_pending_photo")
+            if pending:
+                st.markdown("**Aperçu :**")
+                import streamlit.components.v1 as _c
+                import base64 as _b64
+                raw = pending.getvalue()
+                b64 = _b64.b64encode(raw).decode()
+                ext = getattr(pending, "name", "x.jpg").rsplit(".", 1)[-1].lower()
+                mime = "image/jpeg" if ext in ("jpg","jpeg") else f"image/{ext}"
+                crop = st.session_state.get("pf_crop", 50)
+                _c.html(
+                    f'<div style="width:100px;height:100px;border-radius:50%;'
+                    f'overflow:hidden;border:3px solid #1565C0;margin:auto;">'
+                    f'<img src="data:{mime};base64,{b64}" '
+                    f'style="width:140%;height:140%;object-fit:cover;'
+                    f'margin-left:-20%;margin-top:-{crop//3}%;">'
+                    f'</div>',
+                    height=120, scrolling=False,
+                )
+            elif photo_path:
+                import streamlit.components.v1 as _c
+                _c.html(
+                    f'<div style="width:100px;height:100px;border-radius:50%;'
+                    f'overflow:hidden;border:3px solid #1565C0;margin:auto;">'
+                    f'<img src="{photo_path}" '
+                    f'style="width:100%;height:100%;object-fit:cover;">'
+                    f'</div>',
+                    height=120, scrolling=False,
+                )
+            else:
+                st.markdown(
+                    '<div style="width:100px;height:100px;border-radius:50%;'
+                    'background:#E3F2FD;border:3px dashed #1565C0;display:flex;'
+                    'align-items:center;justify-content:center;font-size:36px;margin:auto;">'
+                    '🎣</div>',
+                    unsafe_allow_html=True,
+                )
+
+        with col_upload:
+            upl = st.file_uploader(
+                "Choisir une photo",
+                type=["jpg","jpeg","png","webp"],
+                key="pf_photo_upload_widget",
+                help="JPG, PNG ou WEBP — sera affiché en rond",
+            )
+            if upl is not None:
+                st.session_state["pf_pending_photo"] = upl
+                st.session_state["pf_crop"] = 50
+                st.rerun()
+
+            # Contrôle de recadrage vertical
+            if st.session_state.get("pf_pending_photo"):
+                st.session_state["pf_crop"] = st.slider(
+                    "↕️ Ajuster le cadrage", 0, 100,
+                    st.session_state.get("pf_crop", 50),
+                    key="pf_crop_slider",
+                )
+                if st.button("❌ Supprimer cette photo", key="pf_remove_photo"):
+                    st.session_state.pop("pf_pending_photo", None)
+                    st.rerun()
 
     with st.form("profil_form"):
         # Identité
@@ -413,133 +454,13 @@ def _render_form(profil, photo_path):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _render_manga(photo_path: str | None) -> None:
-    has_photo = bool(photo_path and (photo_path.startswith("http") or Path(photo_path).exists()))
-
-    STYLES = {
-        "Pêcheur héroïque 🎣":                   "heroic fisherman manga style, surfcasting rod, dramatic ocean, epic realistic pose",
-        "Studio Ghibli 🌊":                       "Studio Ghibli Miyazaki animation style, painterly, sea and nature, warm cinematic light",
-        "Shōnen (Naruto, One Piece)":            "classic shonen manga style, bold outlines, dynamic determined pose",
-        "Seinen réaliste (Berserk, Vagabond)":   "seinen manga style, realistic detailed, rugged face, dramatic lighting",
-        "Anime moderne (Demon Slayer)":          "modern anime style, Demon Slayer quality, vibrant cinematic colors",
-        "Chibi pêcheur 🐟":                      "chibi super deformed manga, cute big head, tiny fisherman with rod",
-    }
-    BG = {
-        "Plage coucher de soleil 🌅": "sunset beach, golden hour light",
-        "Océan et vagues 🌊":         "dramatic ocean waves, sea spray",
-        "Port de pêche 🚢":           "rustic fishing harbor, boats, dawn",
-        "Fond neutre":                "clean neutral background",
-        "Ciel étoilé 🌙":            "starry night sky, moonlight reflection on water",
-    }
-
-    if has_photo:
-        c_img, c_info = st.columns([1, 3])
-        c_img.image(photo_path, use_container_width=True)
-        c_info.success("✅ Ta photo sera analysée par Claude Vision pour personnaliser l'avatar.")
-        use_existing = c_info.checkbox("Utiliser ma photo", value=True, key="mg_use")
-    else:
-        st.info("Ajoute une photo de profil pour un avatar personnalisé à ton image.")
-        use_existing = False
-
-    upload = None
-    if not use_existing:
-        upload = st.file_uploader("Ou charger une photo", type=["jpg","jpeg","png","webp"],
-                                   key="mg_upload")
-
-    c1, c2, c3 = st.columns(3)
-    style = c1.selectbox("Style", list(STYLES.keys()), key="mg_style")
-    bg    = c2.selectbox("Fond",  list(BG.keys()),     key="mg_bg")
-    extra = c3.text_input("Détails", placeholder="lunettes, barbe, chapeau…", key="mg_extra")
-
-    generate = st.button("✨ Générer l'avatar", key="mg_gen", type="primary",
-                          use_container_width=True)
-
-    if generate:
-        source = (Path(photo_path) if use_existing and has_photo else upload)
-        face_desc = ""
-        if source:
-            with st.spinner("Analyse par Claude Vision…"):
-                face_desc = _analyze_face(source)
-            if face_desc:
-                st.caption(f"👁 Visage détecté : _{face_desc}_")
-        subject = face_desc or "a rugged fisherman with a weathered determined look"
-        prompt = ", ".join(filter(None,[
-            f"manga portrait of {subject}", STYLES[style], BG[bg], extra,
-            "high quality illustration, professional anime art",
-        ]))
-        with st.spinner("Génération… (15-30 s)"):
-            _, img = _pollinations(prompt)
-        if img:
-            st.session_state["mg_bytes"] = img
-        else:
-            st.error("Échec. Vérifie ta connexion et réessaie.")
-
-    img = st.session_state.get("mg_bytes")
-    if img:
-        c_res, c_act = st.columns([2, 1])
-        c_res.image(img, caption="✨ Avatar généré", use_container_width=True)
-        c_act.download_button("⬇️ Télécharger", img, "avatar.png", "image/png",
-                               use_container_width=True)
-        if c_act.button("💾 Définir comme photo de profil", key="mg_save",
-                         use_container_width=True):
-            # Upload vers Supabase Storage
-            import io
-            from core.storage import save_materiel_photo
-            img_file = io.BytesIO(img)
-            img_file.name = f"profil_avatar_{int(datetime.now().timestamp())}.png"
-            photo_url = save_materiel_photo(img_file, 0, "profil_avatar")
-            pd_ = load_profil() or {}
-            pd_["photo_path"] = photo_url or str(Path("photos_materiel") / img_file.name)
-            pd_.setdefault("created_at", datetime.now().isoformat(timespec="seconds"))
-            pd_["updated_at"] = datetime.now().isoformat(timespec="seconds")
-            save_profil(pd_)
-            st.session_state.pop("mg_bytes", None)
-            st.success("Photo de profil mise à jour !")
-            st.rerun()
-            st.rerun()
-        if c_act.button("🔄 Regénérer", key="mg_regen", use_container_width=True):
-            st.session_state.pop("mg_bytes", None)
-            st.rerun()
+    """Remplacé par upload simple avec recadrage."""
+    pass
 
 
 def _analyze_face(source) -> str:
-    try:
-        import requests as _r
-        if isinstance(source, Path):
-            data = source.read_bytes()
-            ext  = source.suffix.lower().lstrip(".")
-        else:
-            data = source.read(); source.seek(0)
-            ext  = getattr(source, "name", "x.jpg").rsplit(".",1)[-1].lower()
-        mt = {"jpg":"image/jpeg","jpeg":"image/jpeg","png":"image/png",
-              "webp":"image/webp"}.get(ext,"image/jpeg")
-        resp = _r.post(
-            "https://api.anthropic.com/v1/messages",
-            json={"model":"claude-sonnet-4-20250514","max_tokens":180,"messages":[
-                {"role":"user","content":[
-                    {"type":"image","source":{"type":"base64","media_type":mt,
-                     "data":base64.b64encode(data).decode()}},
-                    {"type":"text","text":"Describe this person's appearance for a manga portrait prompt in 1-2 sentences. Focus on hair color/style, eye color, face shape, age, skin tone, expression. Start with 'a person with'."},
-                ]}
-            ]},
-            headers={"Content-Type":"application/json"},
-            timeout=25,
-        )
-        if resp.status_code == 200:
-            return resp.json()["content"][0]["text"].strip()
-    except Exception:
-        pass
     return ""
 
 
 def _pollinations(prompt: str) -> tuple[str, bytes | None]:
-    try:
-        import requests as _r
-        from urllib.parse import quote
-        url = (f"https://image.pollinations.ai/prompt/{quote(prompt)}"
-               f"?model=flux&width=512&height=512&nologo=true&seed={abs(hash(prompt))%99999}")
-        r = _r.get(url, timeout=60)
-        if r.status_code == 200 and r.headers.get("content-type","").startswith("image"):
-            return url, r.content
-        return url, None
-    except Exception:
-        return "", None
+    return "", None

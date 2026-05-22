@@ -24,7 +24,7 @@ from modules import (
 
 
 def _persist_session() -> None:
-    """Restaure la session depuis les query params (mis à jour par JS localStorage)."""
+    """Restaure la session depuis les query params."""
     params = st.query_params
     uid = params.get("uid")
     if uid and not st.session_state.get("reseau_user"):
@@ -38,38 +38,13 @@ def _persist_session() -> None:
 
 
 def _session_js() -> None:
-    """JS pour sauvegarder/restaurer la session via localStorage + query params."""
+    """Sauvegarde uid dans l'URL au login."""
     user = st.session_state.get("reseau_user")
     if user:
         uid = user.get("id", "")
-        pseudo = user.get("pseudo", "").replace("'", "\\'")
-        st.markdown(
-            f"<script>"
-            f"try{{"
-            f"localStorage.setItem('lp_uid','{uid}');"
-            f"const u=new URL(window.parent.location.href);"
-            f"if(u.searchParams.get('uid')!=='{uid}'){{"
-            f"u.searchParams.set('uid','{uid}');"
-            f"window.parent.history.replaceState({{}},'',u.toString());}}"
-            f"}}catch(e){{}}"
-            f"</script>",
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown(
-            "<script>"
-            "try{"
-            "const s=localStorage.getItem('lp_uid');"
-            "if(s){"
-            "const u=new URL(window.parent.location.href);"
-            "if(!u.searchParams.get('uid')){"
-            "u.searchParams.set('uid',s);"
-            "window.parent.history.replaceState({},'',u.toString());"
-            "window.parent.location.reload();}}"
-            "}catch(e){}"
-            "</script>",
-            unsafe_allow_html=True,
-        )
+        # Mettre à jour le query param sans rerun
+        if st.query_params.get("uid") != uid:
+            st.query_params["uid"] = uid
 
 
 def main() -> None:
