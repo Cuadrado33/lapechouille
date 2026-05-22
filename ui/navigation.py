@@ -10,11 +10,16 @@ NAV_GROUPS = [
     {
         "title": "Accueil",
         "items": [
-            {"key": "profil",       "label": "Mon profil",            "icon": "👤"},
-            {"key": "accueil",      "label": "Tableau de bord",       "icon": "🏠"},
-            {"key": "reseau",       "label": "Fil d'actualité",       "icon": "📰"},
-            {"key": "reseau_amis",  "label": "Amis",                  "icon": "👥"},
-            {"key": "reseau_class", "label": "Classement pêcheurs",   "icon": "🏆"},
+            {"key": "accueil", "label": "Tableau de bord", "icon": "🏠"},
+            {"key": "profil",  "label": "Mon profil",       "icon": "👤"},
+        ],
+    },
+    {
+        "title": "🌊 Réseau La Péchouille",
+        "items": [
+            {"key": "reseau",       "label": "Fil d'actualité",     "icon": "📰"},
+            {"key": "reseau_amis",  "label": "Amis",                "icon": "👥"},
+            {"key": "reseau_class", "label": "Classement pêcheurs", "icon": "🏆"},
         ],
     },
     {
@@ -31,33 +36,33 @@ NAV_GROUPS = [
     {
         "title": "2 · Suivi pêche",
         "items": [
-            {"key": "mes_spots",      "label": "Mes spots",            "icon": "⭐"},
-            {"key": "sessions",       "label": "Mes sessions",         "icon": "📓"},
-            {"key": "competition",    "label": "Compétition",          "icon": "🎖️"},
-            {"key": "captures",       "label": "Mes captures",         "icon": "🎣"},
+            {"key": "mes_spots",      "label": "Mes spots",               "icon": "⭐"},
+            {"key": "sessions",       "label": "Mes sessions",            "icon": "📓"},
+            {"key": "competition",    "label": "Compétition",             "icon": "🎖️"},
+            {"key": "captures",       "label": "Mes captures",            "icon": "🎣"},
             {"key": "identification", "label": "Identification poissons", "icon": "🐟"},
-            {"key": "spots_appats",   "label": "Spots appâts",         "icon": "🪱"},
-            {"key": "analyse",        "label": "Analyse performance",  "icon": "📈"},
+            {"key": "spots_appats",   "label": "Spots appâts",            "icon": "🪱"},
+            {"key": "analyse",        "label": "Analyse performance",     "icon": "📈"},
         ],
     },
     {
         "title": "3 · Matériel",
         "items": [
-            {"key": "mat_cannes",    "label": "Cannes",               "icon": "🎯"},
-            {"key": "mat_moulinets", "label": "Moulinets",            "icon": "⚙️"},
-            {"key": "mat_montages",  "label": "Montages",             "icon": "🧵"},
-            {"key": "mat_divers",    "label": "Matériel divers",      "icon": "🎒"},
-            {"key": "mat_tableaux",  "label": "Références & tableaux","icon": "📊"},
+            {"key": "mat_cannes",    "label": "Cannes",                "icon": "🎯"},
+            {"key": "mat_moulinets", "label": "Moulinets",             "icon": "⚙️"},
+            {"key": "mat_montages",  "label": "Mes montages",          "icon": "🧵"},
+            {"key": "mat_divers",    "label": "Matériel divers",       "icon": "🎒"},
+            {"key": "mat_tableaux",  "label": "Références & tableaux", "icon": "📊"},
         ],
     },
     {
         "title": "4 · Divers",
         "items": [
-            {"key": "photos",   "label": "Photos / souvenirs",    "icon": "📸"},
-            {"key": "webcams",  "label": "Webcams plages",         "icon": "🌐"},
-            {"key": "services", "label": "Services à proximité",  "icon": "🧭"},
-            {"key": "alertes",  "label": "Alertes locales",       "icon": "🚨"},
-            {"key": "export",   "label": "Export des données",    "icon": "📤"},
+            {"key": "photos",   "label": "Photos / souvenirs",   "icon": "📸"},
+            {"key": "webcams",  "label": "Webcams plages",        "icon": "🌐"},
+            {"key": "services", "label": "Services à proximité", "icon": "🧭"},
+            {"key": "alertes",  "label": "Alertes locales",      "icon": "🚨"},
+            {"key": "export",   "label": "Export des données",   "icon": "📤"},
         ],
     },
 ]
@@ -89,43 +94,96 @@ def render_sidebar_navigation() -> None:
 
     user = st.session_state.get("reseau_user")
 
-    # ── Bandeau utilisateur : photo ronde + nom + connexion/déconnexion ──
+    # ── Bandeau La Péchouille ────────────────────────────────────────
+    st.sidebar.markdown(
+        '<div style="background:linear-gradient(135deg,#1565C0,#0c2340);'
+        'color:#fff;padding:10px 14px;border-radius:8px;margin-bottom:8px;'
+        'text-align:center;">'
+        '<div style="font-size:24px;">🎣</div>'
+        '<div style="font-size:15px;font-weight:800;letter-spacing:1px;">La Péchouille</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── Utilisateur connecté ─────────────────────────────────────────
     if user:
         _render_sidebar_profile_card()
         if st.sidebar.button("🚪 Se déconnecter", key="nav_logout",
                               use_container_width=True):
             st.session_state.pop("reseau_user", None)
-            # Vider le query param uid
             st.query_params.clear()
             st.rerun()
+
+    # ── Formulaire de connexion inline ───────────────────────────────
     else:
-        st.sidebar.markdown(
-            '<div style="background:linear-gradient(135deg,#1565C0,#0c2340);'
-            'color:#fff;padding:10px 14px;border-radius:8px;margin-bottom:8px;'
-            'text-align:center;">'
-            '<div style="font-size:22px;">🎣</div>'
-            '<div style="font-size:13px;font-weight:700;">La Péchouille</div>'
-            '<div style="font-size:10px;opacity:.8;">Connecte-toi pour accéder à l\'app</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        if st.sidebar.button("🔑 Se connecter", key="nav_login",
-                              use_container_width=True, type="primary"):
-            set_active("profil", "Mon profil")
-            st.rerun()
+        login_open = st.session_state.get("sidebar_login_open", False)
+
+        if not login_open:
+            if st.sidebar.button("🔑 Se connecter", key="nav_login",
+                                  use_container_width=True, type="primary"):
+                st.session_state["sidebar_login_open"] = True
+                st.rerun()
+        else:
+            # Mini-formulaire inline dans la sidebar
+            st.sidebar.markdown(
+                '<div style="background:#F5F7FA;border-radius:8px;'
+                'padding:10px;margin-bottom:6px;">'
+                '<div style="font-size:12px;font-weight:700;color:#1565C0;'
+                'margin-bottom:6px;">🔑 Connexion</div></div>',
+                unsafe_allow_html=True,
+            )
+            email = st.sidebar.text_input("Email", key="sl_email",
+                                           placeholder="ton@email.com",
+                                           label_visibility="collapsed")
+            pwd   = st.sidebar.text_input("Mot de passe", key="sl_pwd",
+                                           type="password",
+                                           placeholder="Mot de passe",
+                                           label_visibility="collapsed")
+            c1, c2 = st.sidebar.columns(2)
+            if c1.button("✅ OK", key="sl_submit", use_container_width=True,
+                          type="primary"):
+                if email and pwd:
+                    import hashlib
+                    from core.supabase_client import supabase_get
+                    h = hashlib.sha256(pwd.encode()).hexdigest()
+                    rows = supabase_get("profils", {
+                        "email":          f"eq.{email.lower().strip()}",
+                        "mot_de_passe":   f"eq.{h}",
+                        "select":         "id,pseudo,email,avatar_url,bio,localisation",
+                    })
+                    if rows:
+                        st.session_state["reseau_user"] = rows[0]
+                        st.session_state.pop("sidebar_login_open", None)
+                        st.rerun()
+                    else:
+                        st.sidebar.error("Email ou mot de passe incorrect.")
+                else:
+                    st.sidebar.warning("Remplis les deux champs.")
+            if c2.button("✕", key="sl_cancel", use_container_width=True):
+                st.session_state.pop("sidebar_login_open", None)
+                st.rerun()
+
+            st.sidebar.markdown("---")
+            st.sidebar.caption("Pas encore de compte ?")
+            if st.sidebar.button("📝 Créer un compte", key="sl_register",
+                                  use_container_width=True):
+                st.session_state.pop("sidebar_login_open", None)
+                set_active("reseau", "Fil d'actualité")
+                st.rerun()
 
     st.sidebar.divider()
-    active_page = st.session_state["nav_page"]
+
+    # ── Navigation ───────────────────────────────────────────────────
+    active_page   = st.session_state["nav_page"]
     active_anchor = st.session_state.get("nav_anchor")
 
     for group in NAV_GROUPS:
         st.sidebar.markdown(f"**{group['title']}**")
         for item in group["items"]:
-            anchor = item.get("anchor")
+            anchor    = item.get("anchor")
             is_active = (active_page == item["key"] and active_anchor == anchor)
-            btn_label = f"{item['icon']}  {item['label']}"
             if st.sidebar.button(
-                btn_label,
+                f"{item['icon']}  {item['label']}",
                 key=f"nav_{item['key']}_{item['label']}",
                 use_container_width=True,
                 type="primary" if is_active else "secondary",
