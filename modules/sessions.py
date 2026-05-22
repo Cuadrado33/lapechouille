@@ -465,125 +465,116 @@ def _render_sessions_list(terminee: bool, type_filter: str | None = None) -> Non
     except Exception:
         all_mm = pd.DataFrame()
 
-    for row_start in range(0, len(filtered), 3):
-        row_sessions = filtered.iloc[row_start:row_start+3]
-        cols = st.columns(len(row_sessions))
+    tf_key = (type_filter or "all").replace(" ", "_")
 
-        for col, (_, row) in zip(cols, row_sessions.iterrows()):
-            sid    = int(row["id"])
-            type_s = safe_str(row.get("type_session")) or "Loisir"
-            lieu   = safe_str(row.get("lieu")) or "—"
-            d      = format_date_fr(row.get("date_session")) or "—"
-            debut  = safe_str(row.get("heure_debut")) or "—"
-            fin    = safe_str(row.get("heure_fin")) or "—"
+    for row_idx, (_, row) in enumerate(filtered.iterrows()):
+        sid    = int(row["id"])
+        type_s = safe_str(row.get("type_session")) or "Loisir"
+        lieu   = safe_str(row.get("lieu")) or "—"
+        d      = format_date_fr(row.get("date_session")) or "—"
+        debut  = safe_str(row.get("heure_debut")) or "—"
+        fin    = safe_str(row.get("heure_fin")) or "—"
 
-            sess_caps = captures[captures["session_id"] == sid] \
-                        if not captures.empty and "session_id" in captures.columns \
-                        else pd.DataFrame()
-            nb_cap = len(sess_caps)
+        sess_caps = captures[captures["session_id"] == sid] \
+                    if not captures.empty and "session_id" in captures.columns \
+                    else pd.DataFrame()
+        nb_cap = len(sess_caps)
 
-            especes_uniq = []
-            best_taille  = None
-            poids_total  = 0.0
-            if not sess_caps.empty:
-                if "espece" in sess_caps.columns:
-                    especes_uniq = sorted({safe_str(x) for x in sess_caps["espece"] if safe_str(x)})
-                if "taille_cm" in sess_caps.columns:
-                    tt = pd.to_numeric(sess_caps["taille_cm"], errors="coerce").dropna()
-                    tt = tt[tt > 0]
-                    if not tt.empty:
-                        best_taille = float(tt.max())
-                if "poids_g" in sess_caps.columns:
-                    pp_s = pd.to_numeric(sess_caps["poids_g"], errors="coerce").dropna()
-                    poids_total = float(pp_s.sum())
+        especes_uniq = []
+        best_taille  = None
+        poids_total  = 0.0
+        if not sess_caps.empty:
+            if "espece" in sess_caps.columns:
+                especes_uniq = sorted({safe_str(x) for x in sess_caps["espece"] if safe_str(x)})
+            if "taille_cm" in sess_caps.columns:
+                tt = pd.to_numeric(sess_caps["taille_cm"], errors="coerce").dropna()
+                tt = tt[tt > 0]
+                if not tt.empty:
+                    best_taille = float(tt.max())
+            if "poids_g" in sess_caps.columns:
+                pp_s = pd.to_numeric(sess_caps["poids_g"], errors="coerce").dropna()
+                poids_total = float(pp_s.sum())
 
-            type_color = "#C62828" if "ompétition" in type_s \
-                         else ("#EF6C00" if "ntra" in type_s else "#2E7D32")
-            type_icon  = "🏆" if "ompétition" in type_s \
-                         else ("🎯" if "ntra" in type_s else "🎣")
+        type_color = "#C62828" if "ompétition" in type_s \
+                     else ("#EF6C00" if "ntra" in type_s else "#2E7D32")
+        type_icon  = "🏆" if "ompétition" in type_s \
+                     else ("🎯" if "ntra" in type_s else "🎣")
 
-            with col:
-                with st.expander(f"{type_icon} **{lieu}** · {d}", expanded=False):
-                    # Bandeau titre coloré
-                    coef_s = safe_str(row.get("coefficient_maree"))
-                    coef_txt = f" · 🌊 Coef {int(float(coef_s))}" if coef_s and coef_s.replace('.','').isdigit() else ""
-                    st.markdown(
-                        f'<div style="background:linear-gradient(135deg,{type_color}cc,{type_color}88);'
-                        f'color:#fff;padding:6px 10px;border-radius:6px;margin-bottom:8px;">'
-                        f'<span style="font-size:13px;font-weight:800;">{type_icon} {type_s}</span><br>'
-                        f'<span style="font-size:11px;">📅 {d} · 🕒 {debut}→{fin}{coef_txt}</span>'
-                        f'</div>',
-                        unsafe_allow_html=True,
+        with st.expander(f"{type_icon} **{lieu}** · {d}", expanded=False):
+            coef_s = safe_str(row.get("coefficient_maree"))
+            coef_txt = f" · 🌊 Coef {int(float(coef_s))}" if coef_s and coef_s.replace('.','').isdigit() else ""
+            st.markdown(
+                f'<div style="background:linear-gradient(135deg,{type_color}cc,{type_color}88);'
+                f'color:#fff;padding:6px 10px;border-radius:6px;margin-bottom:8px;">'
+                f'<span style="font-size:13px;font-weight:800;">{type_icon} {type_s}</span><br>'
+                f'<span style="font-size:11px;">📅 {d} · 🕒 {debut}→{fin}{coef_txt}</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+            # Photos
+            photos_sess = []
+            if not sess_caps.empty and "photo_path" in sess_caps.columns:
+                for _, cr in sess_caps.iterrows():
+                    p = safe_str(cr.get("photo_path"))
+                    if p and str(p).startswith("http"):
+                        photos_sess.append(p)
+            if photos_sess:
+                for ph in photos_sess[:3]:
+                    _comp.html(
+                        f'<img src="{ph}" style="width:100%;max-height:160px;'
+                        f'object-fit:cover;border-radius:6px;margin-bottom:4px;">',
+                        height=170, scrolling=False,
                     )
 
-                    # Photos de la session
-                    photos_sess = []
-                    if not sess_caps.empty and "photo_path" in sess_caps.columns:
-                        for _, cr in sess_caps.iterrows():
-                            p = safe_str(cr.get("photo_path"))
-                            if p and str(p).startswith("http"):
-                                photos_sess.append(p)
-                    if photos_sess:
-                        for ph in photos_sess[:3]:
-                            _comp.html(
-                                f'<img src="{ph}" style="width:100%;max-height:160px;'
-                                f'object-fit:cover;border-radius:6px;margin-bottom:4px;">',
-                                height=170, scrolling=False,
-                            )
+            # Stats
+            st.markdown(
+                f'<div style="margin:6px 0;">'
+                f'<span style="background:#E8F5E9;color:#2E7D32;font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;margin-right:4px;">🐟 {nb_cap} prise(s)</span>'
+                + (f'<span style="background:#FFF3E0;color:#E65100;font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;margin-right:4px;">📏 {best_taille:.0f} cm</span>' if best_taille else '')
+                + (f'<span style="background:#E3F2FD;color:#1565C0;font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;">⚖️ {poids_total/1000:.2f} kg</span>' if poids_total >= 1000 else (f'<span style="background:#E3F2FD;color:#1565C0;font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;">⚖️ {poids_total:.0f} g</span>' if poids_total > 0 else ''))
+                + '</div>',
+                unsafe_allow_html=True,
+            )
 
-                    # Stats
-                    st.markdown(
-                        f'<div style="margin:6px 0;">'
-                        f'<span style="background:#E8F5E9;color:#2E7D32;font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;margin-right:4px;">🐟 {nb_cap} prise(s)</span>'
-                        + (f'<span style="background:#FFF3E0;color:#E65100;font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;margin-right:4px;">📏 {best_taille:.0f} cm</span>' if best_taille else '')
-                        + (f'<span style="background:#E3F2FD;color:#1565C0;font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;">⚖️ {poids_total/1000:.2f} kg</span>' if poids_total >= 1000 else (f'<span style="background:#E3F2FD;color:#1565C0;font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;">⚖️ {poids_total:.0f} g</span>' if poids_total > 0 else ''))
-                        + f'</div>',
-                        unsafe_allow_html=True,
-                    )
+            if especes_uniq:
+                st.caption("🐟 " + " · ".join(especes_uniq[:4]))
 
-                    # Espèces
-                    if especes_uniq:
-                        st.caption("🐟 " + " · ".join(especes_uniq[:4]))
+            meteo_parts = []
+            if safe_str(row.get("vent_vitesse")): meteo_parts.append(f"💨 {float(row['vent_vitesse']):.0f} km/h")
+            if safe_str(row.get("vague_hauteur")): meteo_parts.append(f"🌊 {float(row['vague_hauteur']):.1f}m")
+            if safe_str(row.get("temperature_air")): meteo_parts.append(f"🌡️ {float(row['temperature_air']):.0f}°C")
+            if meteo_parts:
+                st.caption(" · ".join(meteo_parts))
 
-                    # Analyse météo
-                    meteo_parts = []
-                    if safe_str(row.get("vent_vitesse")): meteo_parts.append(f"💨 {float(row['vent_vitesse']):.0f} km/h")
-                    if safe_str(row.get("vague_hauteur")): meteo_parts.append(f"🌊 {float(row['vague_hauteur']):.1f}m")
-                    if safe_str(row.get("temperature_air")): meteo_parts.append(f"🌡️ {float(row['temperature_air']):.0f}°C")
-                    if meteo_parts:
-                        st.caption(" · ".join(meteo_parts))
+            mat_parts = []
+            if safe_str(row.get("canne")): mat_parts.append(f"🎯 {row['canne']}")
+            if safe_str(row.get("moulinet")): mat_parts.append(f"⚙️ {row['moulinet']}")
+            if mat_parts:
+                st.caption(" · ".join(mat_parts))
 
-                    # Matériel
-                    mat_parts = []
-                    if safe_str(row.get("canne")): mat_parts.append(f"🎯 {row['canne']}")
-                    if safe_str(row.get("moulinet")): mat_parts.append(f"⚙️ {row['moulinet']}")
-                    if mat_parts:
-                        st.caption(" · ".join(mat_parts))
+            if safe_str(row.get("commentaire")):
+                st.caption(f"💬 {safe_str(row.get('commentaire'))}")
 
-                    # Commentaire
-                    if safe_str(row.get("commentaire")):
-                        st.caption(f"💬 {safe_str(row.get('commentaire'))}")
+            # Boutons — clé unique par tf_key + sid + row_idx
+            ca, cb = st.columns(2)
+            uk = f"{tf_key}_{sid}_{row_idx}"
+            edit_key = f"sess_edit_{uk}"
+            if ca.button("✏️ Modifier", key=f"sess_edit_btn_{uk}", use_container_width=True):
+                st.session_state[edit_key] = not st.session_state.get(edit_key, False)
+                st.rerun()
+            if cb.button("🗑️ Supprimer", key=f"sess_del_btn_{uk}", use_container_width=True):
+                st.session_state[f"confirm_sess_{uk}"] = True
 
-                    # Boutons actions
-                    ca, cb = st.columns(2)
-                    edit_key = f"sess_edit_{sid}"
-                    if ca.button("✏️ Modifier", key=f"sess_edit_btn_{sid}",
-                                  use_container_width=True):
-                        st.session_state[edit_key] = not st.session_state.get(edit_key, False)
-                        st.rerun()
-                    if cb.button("🗑️ Supprimer", key=f"sess_del_btn_{sid}",
-                                  use_container_width=True):
-                        st.session_state[f"confirm_sess_{sid}"] = True
+            if st.session_state.get(f"confirm_sess_{uk}"):
+                if confirm_destructive(f"sess_{uk}", f"Supprimer session {lieu} ?"):
+                    delete_session(sid)
+                    st.session_state[f"confirm_sess_{uk}"] = False
+                    st.cache_data.clear()
+                    st.rerun()
 
-                    if st.session_state.get(f"confirm_sess_{sid}"):
-                        if confirm_destructive(f"sess_{sid}", f"Supprimer session {lieu} ?"):
-                            delete_session(sid)
-                            st.session_state[f"confirm_sess_{sid}"] = False
-                            st.cache_data.clear()
-                            st.rerun()
-
-                    if st.session_state.get(edit_key):
-                        _render_edit_session(row, sid)
+            if st.session_state.get(edit_key):
+                _render_edit_session(row, sid)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -852,58 +843,71 @@ def _render_session_captures(sid: int, terminee: bool) -> None:
     st.caption(f"**{nb} capture(s)** · Clique sur ✏️ pour modifier")
 
     for i, (_, cap) in enumerate(caps.iterrows()):
-        cap_id     = int(cap["id"])
-        espece     = safe_str(cap.get("espece")) or "—"
-        taille     = safe_float(cap.get("taille_cm"))
-        poids_txt  = format_weight_display(cap)
-        heure      = safe_str(cap.get("heure_capture")) or "—"
-        photo_path = safe_str(cap.get("photo_path"))
-        relache    = bool(cap.get("relache"))
-        trophee    = bool(cap.get("poisson_trophee") or cap.get("poisson_trophe"))
-        appat      = safe_str(cap.get("appat")) or "—"
+        cap_id      = int(cap["id"])
+        espece      = safe_str(cap.get("espece")) or "—"
+        taille      = safe_float(cap.get("taille_cm"))
+        poids_txt   = format_weight_display(cap)
+        heure       = safe_str(cap.get("heure_capture")) or "—"
+        photo_path  = safe_str(cap.get("photo_path"))
+        relache     = bool(cap.get("relache"))
+        trophee     = bool(cap.get("poisson_trophee") or cap.get("poisson_trophe"))
+        appat       = safe_str(cap.get("appat")) or "—"
         commentaire = safe_str(cap.get("commentaire"))
-
-        trophee_badge = ('<span style="background:#FFD54F;color:#5d4f1a;font-size:10px;'
-                          'font-weight:700;padding:2px 7px;border-radius:8px;'
-                          'margin-right:4px;">🏆 TROPHÉE</span>') if trophee else ""
-        rel_badge = ('<span style="background:#E8F5E9;color:#2E7D32;font-size:10px;'
-                      'font-weight:700;padding:2px 7px;border-radius:8px;">↩️ Relâché</span>') \
-                    if relache else \
-                    ('<span style="background:#E3F2FD;color:#1565C0;font-size:10px;'
-                      'font-weight:700;padding:2px 7px;border-radius:8px;">📦 Gardé</span>')
+        montage     = safe_str(cap.get("montage"))
 
         with st.container(border=True):
-            # Bandeau de la capture avec heure bien visible
+            # Bandeau bleu titre
+            trophee_icon = " 🏆" if trophee else ""
+            garde_icon   = "↩️ Relâché" if relache else "📦 Gardé"
             st.markdown(
-                f'<div style="display:flex;justify-content:space-between;'
-                f'align-items:center;flex-wrap:wrap;gap:8px;'
-                f'background:#F5F7FA;border-radius:6px;'
-                f'padding:7px 12px;margin-bottom:8px;">'
-                f'<div><strong style="font-size:14px;">#{i+1} · {espece}</strong>'
-                f'&nbsp;&nbsp;{trophee_badge}{rel_badge}</div>'
-                f'<div style="background:#1565C0;color:#fff;font-size:13px;'
-                f'font-weight:800;padding:3px 12px;border-radius:8px;">'
-                f'🕐 {heure}</div>'
+                f'<div style="background:linear-gradient(135deg,#1565C0,#0c2340);'
+                f'color:#fff;padding:6px 12px;border-radius:6px;margin-bottom:10px;'
+                f'display:flex;justify-content:space-between;align-items:center;">'
+                f'<span style="font-size:14px;font-weight:800;">🐟 {espece}{trophee_icon}</span>'
+                f'<span style="font-size:12px;opacity:.9;">🕐 {heure} · {garde_icon}</span>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
-            c_photo, c_main, c_specs, c_act = st.columns([1, 2.5, 1.5, 1])
 
-            with c_photo:
-                if photo_path and (str(photo_path).startswith("http") or Path(photo_path).exists()):
-                    st.image(photo_path, use_container_width=True)
-                else:
-                    # Pas de photo : SVG fabriqué via helper centralisé
-                    from data.fish_data import get_fish_visual
-                    visual_html = get_fish_visual(espece, size=110)
-                    _comp.html(
-                        f'<div style="display:flex;align-items:center;justify-content:center;'
-                        f'aspect-ratio:1;">{visual_html}</div>',
-                        height=120, scrolling=False,
-                    )
+            c_left, c_right = st.columns([1, 2])
 
-            with c_main:
-                st.markdown(f"### {espece}")
+            with c_left:
+                # SVG toujours visible
+                from data.fish_data import get_fish_visual
+                _comp.html(
+                    f'<div style="display:flex;align-items:center;justify-content:center;'
+                    f'background:#f5f9ff;border-radius:6px;padding:4px;">'
+                    f'{get_fish_visual(espece, size=90)}</div>',
+                    height=80, scrolling=False,
+                )
+                # Photo cliquable avec lightbox
+                if photo_path and str(photo_path).startswith("http"):
+                    lb_id = f"lb_cap_{cap_id}"
+                    _comp.html(f"""
+<img src="{photo_path}" onclick="document.getElementById('{lb_id}').style.display='flex'"
+  style="width:100%;max-height:200px;object-fit:contain;border-radius:6px;
+  margin-top:6px;cursor:pointer;" loading="lazy">
+<div id="{lb_id}" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);
+  z-index:9999;align-items:center;justify-content:center;flex-direction:column;">
+  <img src="{photo_path}" style="max-width:90vw;max-height:85vh;object-fit:contain;border-radius:8px;">
+  <button onclick="document.getElementById('{lb_id}').style.display='none'"
+    style="margin-top:14px;background:rgba(255,255,255,.2);color:#fff;border:none;
+    padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;">✕ Fermer</button>
+</div>
+""", height=220, scrolling=False)
+
+            with c_right:
+                # Pastilles taille/poids
+                st.markdown(
+                    f'<div style="margin-bottom:8px;">'
+                    f'<span style="background:#E3F2FD;color:#1565C0;font-size:12px;font-weight:700;'
+                    f'padding:3px 10px;border-radius:10px;margin-right:6px;">📏 {taille:.0f} cm</span>'
+                    f'<span style="background:#FFF3E0;color:#E65100;font-size:12px;font-weight:700;'
+                    f'padding:3px 10px;border-radius:10px;">{poids_txt}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+                # Appât
                 appat_svg = next((APPAT_SVG_MAP[k] for k in APPAT_SVG_MAP if k.lower() in appat.lower()), "")
                 if appat_svg:
                     _comp.html(
@@ -913,58 +917,41 @@ def _render_session_captures(sid: int, terminee: bool) -> None:
                         height=36, scrolling=False,
                     )
                 else:
-                    st.caption(f"🪱 Appât : **{appat}**")
-                if safe_str(cap.get("montage")):
-                    st.caption(f"🧵 Montage : {cap.get('montage')}")
+                    st.caption(f"🪱 {appat}")
+                if montage: st.caption(f"🧵 {montage}")
 
-                # Matériel utilisé pour cette capture
-                mat_parts = []
-                if safe_str(cap.get("canne")):
-                    mat_parts.append(f"🎯 {cap['canne']}")
-                if safe_str(cap.get("moulinet")):
-                    mat_parts.append(f"⚙️ {cap['moulinet']}")
-                if safe_str(cap.get("bobine_moulinet")):
-                    mat_parts.append(f"🧵 {cap['bobine_moulinet']}")
-                if mat_parts:
-                    st.caption(" · ".join(mat_parts))
+                # Matériel
+                mat = []
+                if safe_str(cap.get("canne")):    mat.append(f"🎯 {cap['canne']}")
+                if safe_str(cap.get("moulinet")): mat.append(f"⚙️ {cap['moulinet']}")
+                if mat: st.caption(" · ".join(mat))
 
                 # Hameçon
-                ham_parts = []
-                if safe_str(cap.get("marque_hamecon")):
-                    ham_parts.append(safe_str(cap["marque_hamecon"]))
-                if safe_str(cap.get("modele_hamecon")):
-                    ham_parts.append(safe_str(cap["modele_hamecon"]))
-                if safe_str(cap.get("taille_hamecon")):
-                    ham_parts.append(f"#{cap['taille_hamecon']}")
-                if ham_parts:
-                    st.caption(f"🪝 {' '.join(ham_parts)}")
+                ham = " ".join(filter(None, [
+                    safe_str(cap.get("marque_hamecon")),
+                    safe_str(cap.get("modele_hamecon")),
+                    f"#{cap['taille_hamecon']}" if safe_str(cap.get("taille_hamecon")) else "",
+                ]))
+                if ham: st.caption(f"🪝 {ham}")
 
-                if safe_str(cap.get("distance_lancer_m")):
-                    d_val = safe_float(cap.get("distance_lancer_m"))
-                    if d_val and d_val > 0:
-                        st.caption(f"🎯 Distance : {d_val:.0f} m")
+                dist = safe_float(cap.get("distance_lancer_m"))
+                if dist: st.caption(f"📐 {dist:.0f} m")
+                if commentaire: st.caption(f"💬 {commentaire}")
 
-                if commentaire:
-                    st.caption(f"💬 {commentaire}")
-
-            with c_specs:
-                st.metric("Taille", f"{taille:.0f} cm" if taille else "—")
-                st.metric("Poids",  poids_txt)
-
-            with c_act:
-                edit_cap_key = f"cap_edit_open_{cap_id}"
-                lbl_e = "✕" if st.session_state.get(edit_cap_key) else "✏️"
-                if st.button(lbl_e, key=f"cap_edit_btn_{cap_id}", use_container_width=True,
-                              help="Modifier cette capture"):
-                    st.session_state[edit_cap_key] = not st.session_state.get(edit_cap_key, False)
-                    st.rerun()
-                if st.button("📋", key=f"cap_copy_{cap_id}", use_container_width=True,
-                              help="Copier cette capture (créer une nouvelle identique)"):
-                    _duplicate_capture(cap, sid)
-                    st.rerun()
-                if st.button("🗑️ Supprimer", key=f"cap_del_{cap_id}", use_container_width=True,
-                              help="Supprimer"):
-                    st.session_state[f"confirm_cap_{cap_id}"] = True
+            # Boutons actions sous les infos
+            ca, cb, cc = st.columns(3)
+            edit_cap_key = f"cap_edit_open_{cap_id}"
+            if ca.button("✏️ Modifier", key=f"cap_edit_btn_{cap_id}",
+                          use_container_width=True):
+                st.session_state[edit_cap_key] = not st.session_state.get(edit_cap_key, False)
+                st.rerun()
+            if cb.button("📋 Copier", key=f"cap_copy_{cap_id}",
+                          use_container_width=True):
+                _duplicate_capture(cap, sid)
+                st.rerun()
+            if cc.button("🗑️ Suppr.", key=f"cap_del_{cap_id}",
+                          use_container_width=True):
+                st.session_state[f"confirm_cap_{cap_id}"] = True
 
             if st.session_state.get(f"confirm_cap_{cap_id}"):
                 if confirm_destructive(f"cap_{cap_id}", f"Supprimer cette capture ({espece}) ?"):
@@ -1401,7 +1388,7 @@ def _render_session_photos(sid: int) -> None:
                 cols = st.columns(3)
                 for j, (_, p) in enumerate(sess_photos.iterrows()):
                     pp = safe_str(p.get("photo_path"))
-                    if pp and Path(pp).exists():
+                    if pp and str(pp).startswith("http"):
                         with cols[j % 3]:
                             st.image(pp, caption=safe_str(p.get("titre")),
                                      use_container_width=True)
