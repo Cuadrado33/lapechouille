@@ -109,8 +109,12 @@ def render() -> None:
         nb_saison = int(sessions_df["date_session"].str.startswith(saison).sum())
 
     photo_path = safe_str(profil.get("photo_path"))
-    if photo_path and not Path(photo_path).exists():
-        photo_path = None
+    # Accepter les URLs Supabase (https://...) et les chemins locaux existants
+    if photo_path:
+        if photo_path.startswith("http"):
+            pass  # URL Supabase — OK
+        elif not Path(photo_path).exists():
+            photo_path = None
 
     # ── Carte de profil style réseau social ──────────────────────────
     _render_profile_card(profil, photo_path,
@@ -152,7 +156,7 @@ def _render_profile_card(profil, photo_path, nb_sessions, nb_captures,
     # ── Photo + bouton avatar ────────────────────────────────────────
     col_photo, col_main = st.columns([1, 3])
     with col_photo:
-        if photo_path and Path(photo_path).exists():
+        if photo_path and (photo_path.startswith("http") or Path(photo_path).exists()):
             st.image(photo_path, use_container_width=True)
         else:
             st.markdown(
@@ -396,7 +400,7 @@ def _render_form(profil, photo_path):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _render_manga(photo_path: str | None) -> None:
-    has_photo = bool(photo_path and Path(photo_path).exists())
+    has_photo = bool(photo_path and (photo_path.startswith("http") or Path(photo_path).exists()))
 
     STYLES = {
         "Pêcheur héroïque 🎣":                   "heroic fisherman manga style, surfcasting rod, dramatic ocean, epic realistic pose",
@@ -464,16 +468,20 @@ def _render_manga(photo_path: str | None) -> None:
                                use_container_width=True)
         if c_act.button("💾 Définir comme photo de profil", key="mg_save",
                          use_container_width=True):
-            p = Path("photos_materiel") / f"profil_manga_{int(datetime.now().timestamp())}.png"
-            p.parent.mkdir(exist_ok=True)
-            p.write_bytes(img)
+            # Upload vers Supabase Storage
+            import io
+            from core.storage import save_materiel_photo
+            img_file = io.BytesIO(img)
+            img_file.name = f"profil_avatar_{int(datetime.now().timestamp())}.png"
+            photo_url = save_materiel_photo(img_file, 0, "profil_avatar")
             pd_ = load_profil() or {}
-            pd_["photo_path"] = str(p)
+            pd_["photo_path"] = photo_url or str(Path("photos_materiel") / img_file.name)
             pd_.setdefault("created_at", datetime.now().isoformat(timespec="seconds"))
             pd_["updated_at"] = datetime.now().isoformat(timespec="seconds")
             save_profil(pd_)
             st.session_state.pop("mg_bytes", None)
             st.success("Photo de profil mise à jour !")
+            st.rerun()
             st.rerun()
         if c_act.button("🔄 Regénérer", key="mg_regen", use_container_width=True):
             st.session_state.pop("mg_bytes", None)
