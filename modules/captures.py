@@ -145,6 +145,12 @@ def _render_new_capture(sessions: pd.DataFrame) -> None:
                                     type=["jpg","jpeg","png","webp"],
                                     key="nc_upl")
         new_photo = upl if upl is not None else cam
+        # Stocker en bytes immédiatement pour survivre au rerun du form
+        if new_photo is not None:
+            st.session_state["nc_photo_bytes"] = new_photo.getvalue()
+            st.session_state["nc_photo_name"]  = getattr(new_photo, "name", "capture.jpg")
+        if st.session_state.get("nc_photo_bytes"):
+            st.image(st.session_state["nc_photo_bytes"], width=120, caption="Aperçu")
 
     # ── Matériel HORS form pour que les bobines s'actualisent en live ──
     with st.expander("🎒 Matériel utilisé (canne / moulinet / bobine)"):
@@ -281,10 +287,17 @@ def _render_new_capture(sessions: pd.DataFrame) -> None:
             "created_at": datetime.now().isoformat(timespec="seconds"),
         }
         cap_id = insert_row("captures", data)
-        if new_photo:
-            pp = save_capture_photo(new_photo, cap_id)
+        # Utiliser les bytes stockés pour l'upload photo
+        photo_bytes = st.session_state.get("nc_photo_bytes")
+        if photo_bytes:
+            import io
+            f = io.BytesIO(photo_bytes)
+            f.name = st.session_state.get("nc_photo_name", "capture.jpg")
+            pp = save_capture_photo(f, cap_id)
             if pp:
                 update_row("captures", cap_id, {"photo_path": pp})
+            st.session_state.pop("nc_photo_bytes", None)
+            st.session_state.pop("nc_photo_name", None)
         st.cache_data.clear()
         st.success(f"✅ Capture {cap_num} enregistrée !")
         st.rerun()

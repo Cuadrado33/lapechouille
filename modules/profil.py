@@ -296,26 +296,25 @@ def _render_form(profil, photo_path):
 
         # Aperçu actuel
         with col_preview:
-            pending = st.session_state.get("pf_pending_photo")
-            if pending:
+            pending_bytes = st.session_state.get("pf_pending_photo_bytes")
+            if pending_bytes:
                 st.markdown("**Aperçu :**")
                 import streamlit.components.v1 as _c
                 import base64 as _b64
-                raw = pending.getvalue()
-                b64 = _b64.b64encode(raw).decode()
-                ext = getattr(pending, "name", "x.jpg").rsplit(".", 1)[-1].lower()
-                mime = "image/jpeg" if ext in ("jpg","jpeg") else f"image/{ext}"
+                b64   = _b64.b64encode(pending_bytes).decode()
+                name  = st.session_state.get("pf_pending_photo_name", "photo.jpg")
+                ext   = name.rsplit(".", 1)[-1].lower()
+                mime  = "image/jpeg" if ext in ("jpg","jpeg") else f"image/{ext}"
                 crop_v = st.session_state.get("pf_crop_v", 50)
                 crop_h = st.session_state.get("pf_crop_h", 50)
-                # Calculer le décalage : 0%=haut/gauche, 50%=centre, 100%=bas/droite
-                margin_top  = -(crop_v * 0.4)   # -20% à +0%
-                margin_left = -(crop_h * 0.4)
+                mt = -(crop_v * 0.4)
+                ml = -(crop_h * 0.4)
                 _c.html(
                     f'<div style="width:100px;height:100px;border-radius:50%;'
                     f'overflow:hidden;border:3px solid #1565C0;margin:auto;">'
                     f'<img src="data:{mime};base64,{b64}" '
                     f'style="width:140%;height:140%;object-fit:cover;'
-                    f'margin-left:{margin_left}%;margin-top:{margin_top}%;">'
+                    f'margin-left:{ml}%;margin-top:{mt}%;">'
                     f'</div>',
                     height=120, scrolling=False,
                 )
@@ -346,12 +345,14 @@ def _render_form(profil, photo_path):
                 help="JPG, PNG ou WEBP — sera affiché en rond",
             )
             if upl is not None:
-                st.session_state["pf_pending_photo"] = upl
+                # Convertir en bytes immédiatement — l'UploadedFile perd ses données au rerun
+                st.session_state["pf_pending_photo_bytes"] = upl.getvalue()
+                st.session_state["pf_pending_photo_name"] = upl.name
                 st.session_state["pf_crop_v"] = 50
                 st.session_state["pf_crop_h"] = 50
                 st.rerun()
 
-            if st.session_state.get("pf_pending_photo"):
+            if st.session_state.get("pf_pending_photo_bytes"):
                 st.session_state["pf_crop_v"] = st.slider(
                     "↕️ Vertical", 0, 100,
                     st.session_state.get("pf_crop_v", 50),
@@ -362,8 +363,9 @@ def _render_form(profil, photo_path):
                     st.session_state.get("pf_crop_h", 50),
                     key="pf_crop_h_slider",
                 )
-                if st.button("❌ Supprimer cette photo", key="pf_remove_photo"):
-                    st.session_state.pop("pf_pending_photo", None)
+                if st.button("❌ Supprimer", key="pf_remove_photo"):
+                    st.session_state.pop("pf_pending_photo_bytes", None)
+                    st.session_state.pop("pf_pending_photo_name", None)
                     st.rerun()
 
     with st.form("profil_form"):
@@ -440,13 +442,18 @@ def _render_form(profil, photo_path):
                 **social_vals,
                 "updated_at": datetime.now().isoformat(timespec="seconds"),
             }
-            # Récupérer la photo depuis session_state
-            pending = st.session_state.get("pf_pending_photo")
-            if pending:
-                pp = save_materiel_photo(pending, 0, "profil")
+            # Récupérer la photo depuis session_state (bytes)
+            pending_bytes = st.session_state.get("pf_pending_photo_bytes")
+            if pending_bytes:
+                import io
+                name = st.session_state.get("pf_pending_photo_name", "photo.jpg")
+                f = io.BytesIO(pending_bytes)
+                f.name = name
+                pp = save_materiel_photo(f, 0, "profil")
                 if pp:
                     data["photo_path"] = pp
-                    st.session_state.pop("pf_pending_photo", None)
+                    st.session_state.pop("pf_pending_photo_bytes", None)
+                    st.session_state.pop("pf_pending_photo_name", None)
                 else:
                     data["photo_path"] = photo_path
             elif photo_path:
