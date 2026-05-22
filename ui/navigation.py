@@ -17,9 +17,10 @@ NAV_GROUPS = [
     {
         "title": "🌊 Réseau La Péchouille",
         "items": [
-            {"key": "reseau",       "label": "Fil d'actualité",     "icon": "📰"},
-            {"key": "reseau_amis",  "label": "Amis",                "icon": "👥"},
-            {"key": "reseau_class", "label": "Classement pêcheurs", "icon": "🏆"},
+            {"key": "reseau",          "label": "Fil d'actualité",     "icon": "📰"},
+            {"key": "reseau_amis",     "label": "Amis",                "icon": "👥"},
+            {"key": "reseau_messages", "label": "Messages",            "icon": "💬"},
+            {"key": "reseau_class",    "label": "Classement pêcheurs", "icon": "🏆"},
         ],
     },
     {
