@@ -112,3 +112,23 @@ def delete_session(sess_id: int) -> bool:
 def init_db() -> None:
     """Supabase : tables créées via SQL Editor. Rien à faire ici."""
     pass
+
+# ── Fonctions utilitaires manquantes ────────────────────────────
+def next_capture_number(session_id: int) -> int:
+    """Retourne le prochain numéro de capture pour une session."""
+    rows = supabase_get("captures", {
+        "session_id": f"eq.{session_id}",
+        "select": "capture_num",
+        "order": "capture_num.desc",
+        "limit": "1",
+    })
+    if rows and rows[0].get("capture_num"):
+        return int(rows[0]["capture_num"]) + 1
+    return 1
+
+def load_captures_for_session(session_id: int) -> pd.DataFrame:
+    rows = supabase_get("captures", {
+        "session_id": f"eq.{session_id}",
+        "order": "capture_num.asc",
+    })
+    return pd.DataFrame(rows) if rows else pd.DataFrame()
