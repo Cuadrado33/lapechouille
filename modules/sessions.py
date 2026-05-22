@@ -566,19 +566,20 @@ def _render_sessions_list(terminee: bool, type_filter: str | None = None) -> Non
 
                     # Boutons actions
                     ca, cb = st.columns(2)
-                    edit_key = f"sess_edit_{sid}"
-                    if ca.button("✏️ Modifier", key=f"sess_edit_btn_{sid}",
+                    tf_key = (type_filter or "all").replace(" ","_")
+                    edit_key = f"sess_edit_{tf_key}_{sid}"
+                    if ca.button("✏️ Modifier", key=f"sess_edit_btn_{tf_key}_{sid}",
                                   use_container_width=True):
                         st.session_state[edit_key] = not st.session_state.get(edit_key, False)
                         st.rerun()
-                    if cb.button("🗑️ Supprimer", key=f"sess_del_btn_{sid}",
+                    if cb.button("🗑️ Supprimer", key=f"sess_del_btn_{tf_key}_{sid}",
                                   use_container_width=True):
-                        st.session_state[f"confirm_sess_{sid}"] = True
+                        st.session_state[f"confirm_sess_{tf_key}_{sid}"] = True
 
-                    if st.session_state.get(f"confirm_sess_{sid}"):
-                        if confirm_destructive(f"sess_{sid}", f"Supprimer session {lieu} ?"):
+                    if st.session_state.get(f"confirm_sess_{tf_key}_{sid}"):
+                        if confirm_destructive(f"sess_{tf_key}_{sid}", f"Supprimer session {lieu} ?"):
                             delete_session(sid)
-                            st.session_state[f"confirm_sess_{sid}"] = False
+                            st.session_state[f"confirm_sess_{tf_key}_{sid}"] = False
                             st.cache_data.clear()
                             st.rerun()
 
