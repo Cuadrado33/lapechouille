@@ -512,8 +512,13 @@ def _render_list() -> None:
 
             col_photo, col_info, col_act = st.columns([1, 3, 1])
             with col_photo:
-                if photo_path and Path(photo_path).exists():
-                    st.image(photo_path, use_container_width=True)
+                if photo_path and str(photo_path).startswith("http"):
+                    import streamlit.components.v1 as _cv_fix
+                    _cv_fix.html(
+                        f'<img src="{photo_path}" style="width:100%;max-height:200px;'
+                        f'object-fit:contain;border-radius:8px;">',
+                        height=208, scrolling=False,
+                    )
                 else:
                     # Schéma SVG généré depuis les données du montage
                     schema_svg = _generate_montage_svg(row, empiles, compact=True)

@@ -447,7 +447,7 @@ def _render_gallery_by_session() -> None:
         if not sess_caps.empty and "photo_path" in sess_caps.columns:
             for _, c in sess_caps.iterrows():
                 pp = safe_str(c.get("photo_path"))
-                if pp and Path(pp).exists():
+                if pp and str(pp).startswith("http"):
                     cap_photos.append({
                         "path":  pp,
                         "titre": safe_str(c.get("espece")) or "Capture",
@@ -462,7 +462,7 @@ def _render_gallery_by_session() -> None:
                   if "espece" in multimedia.columns else pd.DataFrame()
             for _, p in mm.iterrows():
                 pp = safe_str(p.get("photo_path"))
-                if pp and Path(pp).exists():
+                if pp and str(pp).startswith("http"):
                     sess_photos.append({
                         "path":  pp,
                         "titre": safe_str(p.get("titre")) or "Photo",

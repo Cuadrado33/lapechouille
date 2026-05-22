@@ -253,19 +253,19 @@ def _render_records() -> None:
                 if not tr_p.empty:
                     trophee_row = tr_p.iloc[0]
                     p = safe_str(trophee_row.get("photo_path"))
-                    if p and Path(p).exists():
+                    if p and str(p).startswith("http"):
                         photo_path = p
         # Sinon photo du best_t_row
         if not photo_path and best_t_row is not None:
             p = safe_str(best_t_row.get("photo_path"))
-            if p and Path(p).exists():
+            if p and str(p).startswith("http"):
                 photo_path = p
         # Sinon n'importe quelle photo de la group
         if not photo_path and "photo_path" in group.columns:
             with_photo = group[group["photo_path"].astype(str).str.len() > 0]
             if not with_photo.empty:
                 p = safe_str(with_photo.iloc[0].get("photo_path"))
-                if p and Path(p).exists():
+                if p and str(p).startswith("http"):
                     photo_path = p
 
         # Identifier la fiche poisson correspondante

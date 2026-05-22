@@ -206,17 +206,17 @@ def _render_trophees(captures: pd.DataFrame, sessions: pd.DataFrame) -> None:
                     tr_p = tr[tr["photo_path"].astype(str).str.len() > 0]
                     if not tr_p.empty:
                         p = safe_str(tr_p.iloc[0].get("photo_path"))
-                        if p and Path(p).exists():
+                        if p and str(p).startswith("http"):
                             photo_path = p
         if not photo_path and best_t_row is not None:
             p = safe_str(best_t_row.get("photo_path"))
-            if p and Path(p).exists():
+            if p and str(p).startswith("http"):
                 photo_path = p
         if not photo_path and "photo_path" in group.columns:
             wp = group[group["photo_path"].astype(str).str.len() > 0]
             if not wp.empty:
                 p = safe_str(wp.iloc[0].get("photo_path"))
-                if p and Path(p).exists():
+                if p and str(p).startswith("http"):
                     photo_path = p
 
         # Fiche poisson + record officiel

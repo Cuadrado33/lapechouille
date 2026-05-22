@@ -416,7 +416,7 @@ def _render_detail(fish: dict) -> None:
                 relach = bool(c.get("relache"))
                 with catch_cols[j % 3]:
                     with st.container(border=True):
-                        if pp and Path(pp).exists():
+                        if pp and str(pp).startswith("http"):
                             st.image(pp, use_container_width=True)
                         else:
                             st.markdown(
@@ -488,14 +488,14 @@ def _render_fish_photos(fid: str, name: str) -> None:
             titre = safe_str(p.get("titre")) or f"Photo {j+1}"
             with cols[j % 4]:
                 with st.container(border=True):
-                    if pp and Path(pp).exists():
+                    if pp and str(pp).startswith("http"):
                         st.image(pp, use_container_width=True)
                     else:
-                        st.caption("_(fichier manquant)_")
+                        st.caption("_(Pas de photo)_")
                     st.caption(titre)
                     if st.button("🗑️ Supprimer", key=f"del_fish_photo_{pid}",
                                   use_container_width=True):
-                        if pp and Path(pp).exists():
+                        if pp and str(pp).startswith("http"):
                             try: Path(pp).unlink()
                             except Exception: pass
                         delete_row("multimedia", pid)
