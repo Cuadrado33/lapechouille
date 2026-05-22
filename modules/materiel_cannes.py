@@ -69,8 +69,13 @@ def _render_cards(df, kind):
         with st.container(border=True):
             c_photo, c_main, c_actions = st.columns([1, 3.5, 1.5])
             with c_photo:
-                if photo_path and Path(photo_path).exists():
-                    st.image(photo_path, use_container_width=True)
+                if photo_path and str(photo_path).startswith("http"):
+                    import streamlit.components.v1 as _cv
+                    _cv.html(
+                        f'<img src="{photo_path}" style="width:100%;max-height:120px;'
+                        f'object-fit:cover;border-radius:8px;">',
+                        height=128, scrolling=False,
+                    )
                 else:
                     photo_placeholder()
             with c_main:
