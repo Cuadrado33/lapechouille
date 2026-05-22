@@ -338,20 +338,25 @@ def _render_captures_by_session(sessions: pd.DataFrame) -> None:
         trophee    = bool(row.get("poisson_trophee") or row.get("poisson_trophe"))
         appat      = safe_str(row.get("appat")) or "—"
 
-        bg = "#ffffff" if i % 2 == 0 else "#f0f4f8"
-        badges = ("↩️ " if relache else "📦 ") + ("🏅 " if trophee else "")
+        trophee_icon = "🏆 Trophée · " if trophee else ""
+        garde_icon   = "📦 Gardé" if not relache else "↩️ Relâché"
 
         with st.container(border=True):
+            # Titre en bleu comme les sections
             st.markdown(
-                f'<div style="background:{bg};border-radius:6px;margin:-8px -12px 8px;'
-                f'padding:6px 12px;font-size:11px;color:#666;">'
-                f'#{i+1} · {heure} · {badges}</div>',
+                f'<div style="background:linear-gradient(135deg,#1565C0,#0c2340);'
+                f'color:#fff;padding:6px 12px;border-radius:6px;margin-bottom:8px;'
+                f'display:flex;align-items:center;gap:8px;">'
+                f'<span style="font-size:13px;font-weight:800;">🐟 {espece}</span>'
+                f'<span style="font-size:11px;opacity:.85;">· 🕐 {heure}</span>'
+                f'<span style="font-size:11px;opacity:.85;margin-left:auto;">'
+                f'{trophee_icon}{garde_icon}</span>'
+                f'</div>',
                 unsafe_allow_html=True,
             )
             c_visual, c_main, c_actions = st.columns([1.5, 3.5, 1])
 
             with c_visual:
-                # Toujours afficher le SVG du poisson
                 from data.fish_data import get_fish_visual
                 visual_html = get_fish_visual(espece, size=100)
                 _comp.html(
@@ -359,22 +364,18 @@ def _render_captures_by_session(sessions: pd.DataFrame) -> None:
                     f'{visual_html}</div>',
                     height=80, scrolling=False,
                 )
-                # Photo en dessous si disponible
-                if photo_path and (str(photo_path).startswith("http") or Path(photo_path).exists()):
-                    if str(photo_path).startswith("http"):
-                        _comp.html(
-                            f'<img src="{photo_path}" style="width:100%;max-height:140px;'
-                            f'object-fit:cover;border-radius:8px;margin-top:4px;">',
-                            height=150, scrolling=False,
-                        )
-                    else:
-                        st.image(photo_path, use_container_width=True)
+                # Photo portrait
+                if photo_path and str(photo_path).startswith("http"):
+                    _comp.html(
+                        f'<img src="{photo_path}" style="width:100%;max-height:180px;'
+                        f'object-fit:contain;border-radius:6px;margin-top:4px;"'
+                        f'loading="lazy">',
+                        height=188, scrolling=False,
+                    )
 
             with c_main:
-                # Nom + badges taille/poids
+                # Taille/poids en pastilles
                 st.markdown(
-                    f'<div style="font-size:15px;font-weight:800;color:#0c2340;margin-bottom:4px;">'
-                    f'{espece}</div>'
                     f'<div style="margin-bottom:6px;">'
                     f'<span style="background:#E3F2FD;color:#1565C0;font-size:12px;font-weight:700;'
                     f'padding:3px 10px;border-radius:10px;margin-right:4px;">📏 {taille:.0f} cm</span>'

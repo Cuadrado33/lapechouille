@@ -90,6 +90,8 @@ def main() -> None:
 
     render_fn = PAGE_ROUTER.get(active_page, accueil.render)
     try:
+        from ui.components import render_profile_banner
+        render_profile_banner()
         render_fn()
     except Exception as exc:
         st.error(f"Erreur : {exc}")
