@@ -70,6 +70,22 @@ SOCIAL_NETWORKS = [
 # ─────────────────────────────────────────────────────────────────────────────
 
 def render() -> None:
+    # Vérifier que l'utilisateur est connecté
+    if not st.session_state.get("reseau_user"):
+        st.markdown(
+            '<div style="background:linear-gradient(135deg,#1565C0,#0c2340);'
+            'color:#fff;padding:14px 20px;border-radius:8px;margin-bottom:20px;">'
+            '<span style="font-size:18px;font-weight:800;">👤 Mon profil</span>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        st.warning("⚠️ Tu dois être connecté pour accéder à ton profil.")
+        st.info("👉 Va dans **Fil d'actualité** pour créer ton compte ou te connecter.")
+        if st.button("🌊 Aller au Réseau", type="primary"):
+            st.session_state["nav_page"] = "reseau"
+            st.rerun()
+        return
+
     profil      = load_profil() or {}
     sessions_df = load_sessions()
     captures_df = load_captures()
