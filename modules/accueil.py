@@ -446,10 +446,7 @@ def _render_recent_sessions(sessions, captures) -> None:
         st.caption("Aucune session enregistrée.")
         return
 
-    import base64
-    from data.fish_data import get_fish_visual
-
-    for i, (_, row) in enumerate(sessions.head(5).iterrows()):
+    for _, row in sessions.head(5).iterrows():
         sid    = int(row["id"])
         lieu   = safe_str(row.get("lieu")) or "Sans lieu"
         d      = format_date_fr(row.get("date_session")) or "—"
@@ -458,105 +455,121 @@ def _render_recent_sessions(sessions, captures) -> None:
         fin_h  = safe_str(row.get("heure_fin")) or ""
         coef   = safe_float(row.get("coefficient_maree")) or 0
 
-        # Code couleur type
-        if "ompétition" in type_s:
-            tc, ti = "#C62828", "🏆"
-        elif "ntra" in type_s:
-            tc, ti = "#EF6C00", "🎯"
-        else:
-            tc, ti = "#1565C0", "🎣"
+        if "ompétition" in type_s:   tc, ti = "#C62828", "🏆"
+        elif "ntra" in type_s:       tc, ti = "#EF6C00", "🎯"
+        else:                        tc, ti = "#1565C0", "🎣"
 
-        # Captures de la session
         sess_caps = captures[captures["session_id"] == sid] \
                     if not captures.empty and "session_id" in captures.columns \
                     else pd.DataFrame()
         nb = len(sess_caps)
 
-        # Espèces (max 3 micro-badges)
-        especes_badges = ""
+        # Stats
         best_t = None
+        especes = []
         if not sess_caps.empty:
             if "espece" in sess_caps.columns:
-                esp_u = sess_caps["espece"].dropna().unique().tolist()[:3]
-                especes_badges = "".join(
-                    f'<span style="background:{tc}18;color:{tc};font-size:9px;'
-                    f'font-weight:700;padding:1px 6px;border-radius:6px;margin-right:3px;">'
-                    f'{e}</span>'
-                    for e in esp_u if e
-                )
+                especes = [e for e in sess_caps["espece"].dropna().unique().tolist() if e][:4]
             if "taille_cm" in sess_caps.columns:
                 tt = pd.to_numeric(sess_caps["taille_cm"], errors="coerce").dropna()
                 tt = tt[tt > 0]
-                if not tt.empty:
-                    best_t = f"📏 {tt.max():.0f} cm"
+                if not tt.empty: best_t = float(tt.max())
 
-        # Vignette photo/SVG/emoji
-        thumb_html = ""
-        if not sess_caps.empty:
-            with_photo = sess_caps[sess_caps["photo_path"].astype(str).str.len() > 0] \
-                         if "photo_path" in sess_caps.columns else pd.DataFrame()
-            if not with_photo.empty:
-                p = safe_str(with_photo.iloc[0].get("photo_path"))
-                if p and Path(p).exists():
-                    try:
-                        ext = Path(p).suffix.lower().lstrip(".")
-                        mime = "image/jpeg" if ext in ("jpg", "jpeg") else f"image/{ext}"
-                        b64 = base64.b64encode(Path(p).read_bytes()).decode()
-                        thumb_html = (
-                            f'<img src="data:{mime};base64,{b64}" '
-                            f'style="width:56px;height:56px;border-radius:6px;'
-                            f'object-fit:cover;border:2px solid {tc};">'
-                        )
-                    except Exception:
-                        pass
-            if not thumb_html and "espece" in sess_caps.columns:
-                esp = safe_str(sess_caps.iloc[0].get("espece"))
-                if esp:
-                    vis = get_fish_visual(esp, size=56)
-                    thumb_html = f'<div style="width:56px;height:56px;border:2px solid {tc};border-radius:6px;overflow:hidden;">{vis}</div>'
+        # Photos de la session
+        photos = []
+        if not sess_caps.empty and "photo_path" in sess_caps.columns:
+            for _, cr in sess_caps.iterrows():
+                p = safe_str(cr.get("photo_path"))
+                if p and str(p).startswith("http"):
+                    photos.append(p)
 
-        if not thumb_html:
-            thumb_html = (
-                f'<div style="width:56px;height:56px;background:{tc}18;'
-                f'border:2px solid {tc};border-radius:6px;display:flex;'
-                f'align-items:center;justify-content:center;font-size:26px;">{ti}</div>'
+        with st.container(border=True):
+            # Titre coloré
+            detail = []
+            if debut: detail.append(f"🕒 {debut}{'→'+fin_h if fin_h else ''}")
+            if coef > 0: detail.append(f"🌊 Coef {int(coef)}")
+            if best_t: detail.append(f"📏 {best_t:.0f} cm")
+
+            st.markdown(
+                f'<div style="background:linear-gradient(135deg,{tc}cc,{tc}88);'
+                f'color:#fff;padding:6px 12px;border-radius:6px;margin-bottom:8px;'
+                f'display:flex;justify-content:space-between;align-items:center;">'
+                f'<span style="font-size:13px;font-weight:800;">{ti} {lieu}</span>'
+                f'<span style="font-size:11px;opacity:.9;">📅 {d}'
+                f'{" · " + " · ".join(detail) if detail else ""}</span>'
+                f'</div>',
+                unsafe_allow_html=True,
             )
 
-        # Infos horaires + coef
-        detail_bits = []
-        if debut:
-            detail_bits.append(f"🕒 {debut}{'→'+fin_h if fin_h else ''}")
-        if coef > 0:
-            detail_bits.append(f"🌊 Coef {int(coef)}")
-        if best_t:
-            detail_bits.append(best_t)
-        detail_str = " · ".join(detail_bits)
+            # Album photos style Facebook
+            if photos:
+                n = len(photos)
+                uid = f"album_{sid}"
+                if n == 1:
+                    grid_html = f'<div style="border-radius:8px;overflow:hidden;cursor:pointer;" onclick="openLB(\'{uid}\',0)"><img src="{photos[0]}" style="width:100%;max-height:280px;object-fit:cover;display:block;"></div>'
+                elif n == 2:
+                    grid_html = f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;border-radius:8px;overflow:hidden;">{"".join(f"<img src=\"{p}\" style=\"width:100%;height:200px;object-fit:cover;cursor:pointer;\" onclick=\"openLB('{uid}',{i})\">" for i, p in enumerate(photos[:2]))}</div>'
+                elif n == 3:
+                    grid_html = (
+                        f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;border-radius:8px;overflow:hidden;">'
+                        f'<img src="{photos[0]}" style="width:100%;height:220px;object-fit:cover;grid-row:span 2;cursor:pointer;" onclick="openLB(\'{uid}\',0)">'
+                        f'<img src="{photos[1]}" style="width:100%;height:109px;object-fit:cover;cursor:pointer;" onclick="openLB(\'{uid}\',1)">'
+                        f'<img src="{photos[2]}" style="width:100%;height:109px;object-fit:cover;cursor:pointer;" onclick="openLB(\'{uid}\',2)">'
+                        f'</div>'
+                    )
+                else:
+                    extra = n - 4
+                    extra_overlay = f'<div style="position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;color:#fff;font-size:24px;font-weight:800;cursor:pointer;" onclick="openLB(\'{uid}\',3)">+{extra}</div>' if extra > 0 else ''
+                    grid_html = (
+                        f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;border-radius:8px;overflow:hidden;">'
+                        f'<img src="{photos[0]}" style="width:100%;height:180px;object-fit:cover;grid-column:span 2;cursor:pointer;" onclick="openLB(\'{uid}\',0)">'
+                        f'<img src="{photos[1]}" style="width:100%;height:130px;object-fit:cover;cursor:pointer;" onclick="openLB(\'{uid}\',1)">'
+                        f'<div style="position:relative;">'
+                        f'<img src="{photos[2] if len(photos)>2 else photos[-1]}" style="width:100%;height:130px;object-fit:cover;">'
+                        f'{extra_overlay}'
+                        f'</div></div>'
+                    )
 
-        # L'encadré entier en HTML inline pour rester compact
-        card_html = f"""
-<div style="display:flex;align-items:center;gap:10px;padding:4px 0;">
-  <div>{thumb_html}</div>
-  <div style="flex:1;min-width:0;">
-    <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">
-      <span style="font-size:14px;font-weight:800;color:#0c2340;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;">{lieu}</span>
-      <span style="background:{tc}22;color:{tc};font-size:9px;font-weight:700;padding:1px 7px;border-radius:6px;white-space:nowrap;">{ti} {type_s}</span>
-      <span style="font-size:10px;color:#546E7A;white-space:nowrap;">📅 {d}</span>
-    </div>
-    <div style="margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-      <span style="background:#E3F2FD;color:#1565C0;font-size:10px;font-weight:700;padding:1px 8px;border-radius:8px;">🐟 {nb} prise(s)</span>
-      {especes_badges}
-      {'<span style="font-size:10px;color:#546E7A;">' + detail_str + '</span>' if detail_str else ''}
-    </div>
+                # Lightbox + grille
+                photos_js = str(photos).replace("'", '"')
+                _comp.html(f"""
+{grid_html}
+<div id="lb_{uid}" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;align-items:center;justify-content:center;flex-direction:column;">
+  <img id="lb_img_{uid}" src="" style="max-width:90vw;max-height:80vh;object-fit:contain;border-radius:8px;">
+  <div style="color:#fff;margin-top:10px;font-size:13px;" id="lb_cpt_{uid}"></div>
+  <div style="display:flex;gap:16px;margin-top:12px;">
+    <button onclick="lbPrev('{uid}')" style="background:rgba(255,255,255,.2);color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:18px;cursor:pointer;">‹</button>
+    <button onclick="closeLB('{uid}')" style="background:rgba(255,255,255,.2);color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:14px;cursor:pointer;">✕ Fermer</button>
+    <button onclick="lbNext('{uid}')" style="background:rgba(255,255,255,.2);color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:18px;cursor:pointer;">›</button>
   </div>
 </div>
-"""
-        with st.container(border=True):
-            col_card, col_btn = st.columns([5, 1])
-            with col_card:
-                _comp.html(card_html, height=72, scrolling=False)
-            with col_btn:
-                if st.button("📋 Voir", key=f"dash_recent_{sid}",
-                              use_container_width=True):
-                    st.session_state["ss_detail_id"] = sid
-                    st.session_state["nav_page"] = "sessions"
-                    st.rerun()
+<script>
+var lbPhotos_{uid} = {photos_js};
+var lbIdx_{uid} = 0;
+function openLB(id, i) {{
+  lbIdx_{uid} = i;
+  showLB('{uid}');
+}}
+function showLB(id) {{
+  var el = document.getElementById('lb_'+id);
+  el.style.display = 'flex';
+  document.getElementById('lb_img_'+id).src = lbPhotos_{uid}[lbIdx_{uid}];
+  document.getElementById('lb_cpt_'+id).textContent = (lbIdx_{uid}+1) + ' / ' + lbPhotos_{uid}.length;
+}}
+function closeLB(id) {{ document.getElementById('lb_'+id).style.display='none'; }}
+function lbNext(id) {{ lbIdx_{uid} = (lbIdx_{uid}+1) % lbPhotos_{uid}.length; showLB(id); }}
+function lbPrev(id) {{ lbIdx_{uid} = (lbIdx_{uid}-1+lbPhotos_{uid}.length) % lbPhotos_{uid}.length; showLB(id); }}
+</script>
+""", height=320 if n >= 3 else (290 if n == 2 else 290), scrolling=False)
+
+            # Pastilles stats
+            badges = [f'<span style="background:#E8F5E9;color:#2E7D32;font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;">🐟 {nb} prise(s)</span>']
+            if best_t: badges.append(f'<span style="background:#FFF3E0;color:#E65100;font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;">📏 {best_t:.0f} cm</span>')
+            for e in especes:
+                badges.append(f'<span style="background:{tc}15;color:{tc};font-size:10px;padding:2px 7px;border-radius:8px;">{e}</span>')
+            st.markdown('<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">' + "".join(badges) + '</div>', unsafe_allow_html=True)
+
+            if st.button("📋 Voir détail", key=f"dash_recent_{sid}", use_container_width=True):
+                st.session_state["ss_detail_id"] = sid
+                st.session_state["nav_page"] = "sessions"
+                st.rerun()

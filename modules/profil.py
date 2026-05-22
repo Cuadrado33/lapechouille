@@ -138,26 +138,7 @@ def render() -> None:
     pseudo  = safe_str(profil.get("pseudo")) or user.get("pseudo","Pêcheur")
     photo   = safe_str(profil.get("photo_path")) or ""
 
-    # ── Carte de profil ───────────────────────────────────────────────
-    st.markdown(
-        f'<div style="background:linear-gradient(135deg,#0c2340,#1565C0);'
-        f'color:#fff;border-radius:12px;padding:20px;margin-bottom:16px;'
-        f'display:flex;align-items:center;gap:20px;flex-wrap:wrap;">'
-        f'{_photo_html(photo, 90)}'
-        f'<div>'
-        f'<div style="font-size:22px;font-weight:800;">{pseudo}</div>'
-        f'<div style="font-size:12px;opacity:.85;margin-top:4px;">'
-        f'{safe_str(profil.get("niveau")) or ""}'
-        f'{"  ·  " + safe_str(profil.get("zone_peche_principale")) if safe_str(profil.get("zone_peche_principale")) else ""}'
-        f'</div>'
-        f'<div style="margin-top:8px;display:flex;gap:8px;">'
-        f'<span style="background:rgba(255,255,255,.15);padding:3px 10px;border-radius:8px;font-size:12px;">📓 {nb_sessions} sessions</span>'
-        f'<span style="background:rgba(255,255,255,.15);padding:3px 10px;border-radius:8px;font-size:12px;">🐟 {nb_captures} prises</span>'
-        f'</div></div></div>',
-        unsafe_allow_html=True,
-    )
-
-    # ── Onglets ────────────────────────────────────────────────────────
+    # ── Onglets directement sans répéter le bandeau ───────────────────
     tab_info, tab_photo, tab_social = st.tabs(["👤 Mes infos", "📸 Ma photo", "🌐 Réseaux"])
 
     with tab_info:
