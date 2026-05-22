@@ -40,10 +40,9 @@ def render_fil() -> None:
         photo   = st.file_uploader("📸 Photo", type=["jpg","jpeg","png"], key="fil_photo")
         photo_url = ""
         if photo:
-            import base64
-            b64 = base64.b64encode(photo.read()).decode()
-            ext = photo.name.split(".")[-1].lower()
-            photo_url = f"data:image/{ext};base64,{b64}"
+            # Upload vers Supabase Storage
+            from core.storage import save_multimedia_photo
+            photo_url = save_multimedia_photo(photo, "post") or ""
 
         if st.button("📤 Publier", key="fil_publish", use_container_width=True, type="primary"):
             if not contenu.strip() and not photo_url:
@@ -135,10 +134,11 @@ def render_fil() -> None:
                 )
 
             # Photo
-            if photo_p and photo_p.startswith("data:"):
+            # Photo du post
+            if photo_p and (photo_p.startswith("http") or photo_p.startswith("data:")):
                 st.markdown(
-                    f'<img src="{photo_p}" style="width:100%;max-height:320px;'
-                    f'object-fit:cover;border-radius:8px;margin:6px 0;">',
+                    f'<img src="{photo_p}" style="width:100%;max-height:400px;'
+                    f'object-fit:contain;border-radius:8px;margin:6px 0;">',
                     unsafe_allow_html=True,
                 )
 

@@ -10,8 +10,8 @@ NAV_GROUPS = [
     {
         "title": "Accueil",
         "items": [
-            {"key": "accueil",      "label": "Tableau de bord",      "icon": "🏠"},
             {"key": "profil",       "label": "Mon profil",            "icon": "👤"},
+            {"key": "accueil",      "label": "Tableau de bord",       "icon": "🏠"},
             {"key": "reseau",       "label": "Fil d'actualité",       "icon": "📰"},
             {"key": "reseau_amis",  "label": "Amis",                  "icon": "👥"},
             {"key": "reseau_class", "label": "Classement pêcheurs",   "icon": "🏆"},
@@ -87,11 +87,34 @@ def set_active(page: str, label: str, anchor: str | None = None) -> None:
 def render_sidebar_navigation() -> None:
     _ensure_defaults()
 
-    # ── Miniature profil ──────────────────────────────────────────────
-    _render_sidebar_profile_card()
+    user = st.session_state.get("reseau_user")
 
-    st.sidebar.title("🎣 Carnet Surfcasting")
-    st.sidebar.caption("Conditions · sessions · matériel · stats")
+    # ── Bandeau utilisateur : photo ronde + nom + connexion/déconnexion ──
+    if user:
+        _render_sidebar_profile_card()
+        if st.sidebar.button("🚪 Se déconnecter", key="nav_logout",
+                              use_container_width=True):
+            st.session_state.pop("reseau_user", None)
+            # Vider le query param uid
+            st.query_params.clear()
+            st.rerun()
+    else:
+        st.sidebar.markdown(
+            '<div style="background:linear-gradient(135deg,#1565C0,#0c2340);'
+            'color:#fff;padding:10px 14px;border-radius:8px;margin-bottom:8px;'
+            'text-align:center;">'
+            '<div style="font-size:22px;">🎣</div>'
+            '<div style="font-size:13px;font-weight:700;">La Péchouille</div>'
+            '<div style="font-size:10px;opacity:.8;">Connecte-toi pour accéder à l\'app</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        if st.sidebar.button("🔑 Se connecter", key="nav_login",
+                              use_container_width=True, type="primary"):
+            set_active("profil", "Mon profil")
+            st.rerun()
+
+    st.sidebar.divider()
     active_page = st.session_state["nav_page"]
     active_anchor = st.session_state.get("nav_anchor")
 
@@ -168,21 +191,29 @@ def _render_sidebar_profile_card() -> None:
                     'transform:scale(1)}50%{opacity:.5;transform:scale(1.05)}}</style>'
                 )
 
-        # Photo en base64
+        # Photo — supporte URL Supabase ET chemin local
         photo_path = safe_str(profil.get("photo_path"))
         photo_html = ""
-        if photo_path and Path(photo_path).exists():
-            try:
-                ext = Path(photo_path).suffix.lower().lstrip(".")
-                mime = "image/jpeg" if ext in ("jpg","jpeg") else f"image/{ext}"
-                b64 = base64.b64encode(Path(photo_path).read_bytes()).decode()
+        if photo_path:
+            if photo_path.startswith("http"):
+                # URL Supabase — img direct
                 photo_html = (
-                    f'<img src="data:{mime};base64,{b64}" '
+                    f'<img src="{photo_path}" '
                     f'style="width:48px;height:48px;border-radius:50%;object-fit:cover;'
                     f'border:2px solid #1565C0;flex-shrink:0;"/>'
                 )
-            except Exception:
-                pass
+            elif Path(photo_path).exists():
+                try:
+                    ext  = Path(photo_path).suffix.lower().lstrip(".")
+                    mime = "image/jpeg" if ext in ("jpg","jpeg") else f"image/{ext}"
+                    b64  = base64.b64encode(Path(photo_path).read_bytes()).decode()
+                    photo_html = (
+                        f'<img src="data:{mime};base64,{b64}" '
+                        f'style="width:48px;height:48px;border-radius:50%;object-fit:cover;'
+                        f'border:2px solid #1565C0;flex-shrink:0;"/>'
+                    )
+                except Exception:
+                    pass
 
         if not photo_html:
             photo_html = ('<div style="width:48px;height:48px;border-radius:50%;'
