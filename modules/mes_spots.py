@@ -308,8 +308,13 @@ def _render_list() -> None:
             col_photo, col_map, col_desc = st.columns([1.2, 1.2, 2])
 
             with col_photo:
-                if photo_path and Path(photo_path).exists():
-                    st.image(photo_path, use_container_width=True)
+                if photo_path and str(photo_path).startswith("http"):
+                    import streamlit.components.v1 as _cv
+                    _cv.html(
+                        f'<img src="{photo_path}" style="width:100%;max-height:180px;'
+                        f'object-fit:cover;border-radius:8px;">',
+                        height=188, scrolling=False,
+                    )
                 else:
                     st.markdown(
                         '<div style="aspect-ratio:4/3;background:#e8f0f8;'
@@ -667,10 +672,15 @@ def _render_spot_photos(spot_id: int, nom: str) -> None:
 
                 with cols[j % 4]:
                     with st.container(border=True):
-                        if pp and Path(pp).exists():
-                            st.image(pp, use_container_width=True)
+                        if pp and str(pp).startswith("http"):
+                            import streamlit.components.v1 as _cv
+                            _cv.html(
+                                f'<img src="{pp}" style="width:100%;height:120px;'
+                                f'object-fit:cover;border-radius:6px;">',
+                                height=128, scrolling=False,
+                            )
                         else:
-                            st.caption("*(fichier manquant)*")
+                            st.caption("📷 Pas encore de photo")
                         # Caption avec marqueur si photo principale
                         if is_main:
                             st.markdown(f"⭐ **{titre}**")
@@ -690,12 +700,9 @@ def _render_spot_photos(spot_id: int, nom: str) -> None:
                                 st.cache_data.clear()
                                 st.success("Photo principale mise à jour.")
                                 st.rerun()
-                        if b_del.button("🗑️ Supprimer", key=f"del_sph_{pid}_{spot_id}",
+                        if b_del.button("🗑️", key=f"del_sph_{pid}_{spot_id}",
                                          use_container_width=True,
                                          help="Supprimer cette photo"):
-                            if pp and Path(pp).exists():
-                                try: Path(pp).unlink()
-                                except Exception: pass
                             delete_row("multimedia", pid)
                             # Vider photo principale si c'était celle-là
                             if pp == current_main:
