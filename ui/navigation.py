@@ -110,8 +110,8 @@ def render_sidebar_navigation() -> None:
     if user:
         if st.sidebar.button("🚪 Se déconnecter", key="nav_logout",
                               use_container_width=True):
-            st.session_state.pop("reseau_user", None)
-            st.query_params.clear()
+            from core.auth import logout as auth_logout
+            auth_logout()
             st.rerun()
 
     # ── Formulaire de connexion inline ───────────────────────────────
@@ -143,17 +143,9 @@ def render_sidebar_navigation() -> None:
             if c1.button("✅ OK", key="sl_submit", use_container_width=True,
                           type="primary"):
                 if email and pwd:
-                    import hashlib
-                    from core.supabase_client import supabase_get
-                    h = hashlib.sha256(pwd.encode()).hexdigest()
-                    rows = supabase_get("profils", {
-                        "email":          f"eq.{email.lower().strip()}",
-                        "mot_de_passe":   f"eq.{h}",
-                        "select":         "id,pseudo,email,avatar_url,bio,localisation",
-                    })
-                    if rows:
-                        st.session_state["reseau_user"] = rows[0]
-                        st.query_params["uid"] = rows[0]["id"]
+                    from core.auth import login as auth_login
+                    user = auth_login(email, pwd)
+                    if user:
                         st.session_state.pop("sidebar_login_open", None)
                         st.rerun()
                     else:

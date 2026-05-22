@@ -60,13 +60,10 @@ def load_bait_spots() -> pd.DataFrame:
     return pd.DataFrame(rows) if rows else pd.DataFrame()
 
 @st.cache_data(ttl=30, show_spinner=False)
-def load_materiel(categorie: str = None) -> pd.DataFrame:
+def load_materiel() -> pd.DataFrame:
     uid = _uid()
     if not uid: return pd.DataFrame()
-    params = {"user_id": f"eq.{uid}", "order": "created_at.desc"}
-    if categorie:
-        params["categorie"] = f"ilike.*{categorie}*"
-    rows = supabase_get("materiel", params)
+    rows = supabase_get("materiel", {"user_id": f"eq.{uid}", "order": "created_at.desc"})
     return pd.DataFrame(rows) if rows else pd.DataFrame()
 
 @st.cache_data(ttl=30, show_spinner=False)

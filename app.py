@@ -24,27 +24,16 @@ from modules import (
 
 
 def _persist_session() -> None:
-    """Restaure la session depuis les query params."""
-    params = st.query_params
-    uid = params.get("uid")
-    if uid and not st.session_state.get("reseau_user"):
-        from core.supabase_client import supabase_get
-        rows = supabase_get("profils", {
-            "id": f"eq.{uid}",
-            "select": "id,pseudo,email,avatar_url,bio,localisation,mot_de_passe"
-        })
-        if rows:
-            st.session_state["reseau_user"] = rows[0]
+    """Restaure la session depuis le token URL."""
+    from core.auth import restore_session
+    restore_session()
 
 
 def _session_js() -> None:
-    """Sauvegarde uid dans l'URL au login."""
-    user = st.session_state.get("reseau_user")
-    if user:
-        uid = user.get("id", "")
-        # Mettre à jour le query param sans rerun
-        if st.query_params.get("uid") != uid:
-            st.query_params["uid"] = uid
+    """Sauvegarde le token dans l'URL si connecté."""
+    token = st.session_state.get("auth_token")
+    if token and st.query_params.get("token") != token:
+        st.query_params["token"] = token
 
 
 def main() -> None:
