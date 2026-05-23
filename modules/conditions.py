@@ -75,90 +75,208 @@ def _base_layout(fig: go.Figure, h: int = CHART_H) -> None:
 def _render_maree(latitude: float, longitude: float) -> None:
     section("Marée", icon="🌊", anchor_id="maree")
     with st.container(border=True):
+        # ── 1. Tentative depuis la base de marées Supabase ────────
         try:
-            tide_df, tide = generate_tide_curve(date.today(), latitude, longitude, hours=48)
+            from core.tides_db import get_tides_for_spot, format_time_fr
 
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Coefficient",    tide["coefficient"])
-            c2.metric("Phase actuelle", tide["phase"])
-            c3.metric("Prochaine PM",   tide["pleine_mer"].strftime("%H:%M"))
-            c4.metric("Prochaine BM",   tide["basse_mer"].strftime("%H:%M"))
+            tide_data = get_tides_for_spot(latitude, longitude, date.today().isoformat())
 
-            times   = tide_df["Heure"].tolist()   # datetime objects
-            heights = tide_df["hauteur_m"].tolist()
+            if tide_data and tide_data.get("events"):
+                port = tide_data["port"]
+                today_pm = tide_data["today_pm"]
+                today_bm = tide_data["today_bm"]
+                coef_max = tide_data["coef_max"]
 
-            fig = go.Figure()
-            # Zone bleue (>0)
-            fig.add_trace(go.Scatter(
-                x=times, y=[max(h, 0) for h in heights],
-                fill="tozeroy", mode="none",
-                fillcolor="rgba(21,101,192,0.18)",
-                showlegend=False, name="Haute",
-            ))
-            # Zone sable (<0)
-            fig.add_trace(go.Scatter(
-                x=times, y=[min(h, 0) for h in heights],
-                fill="tozeroy", mode="none",
-                fillcolor="rgba(210,180,120,0.22)",
-                showlegend=False, name="Basse",
-            ))
-            # Courbe principale
-            fig.add_trace(go.Scatter(
-                x=times, y=heights,
-                mode="lines", name="Hauteur (m)",
-                line=dict(color=C_BLUE, width=2.5),
-                hovertemplate="%{x|%d/%m %H:%M} — <b>%{y:.2f} m</b><extra></extra>",
-            ))
+                # En-tête : port de référence
+                st.markdown(
+                    f'<div style="background:linear-gradient(135deg,#0c2340,#1565C0);'
+                    f'color:#fff;padding:10px 14px;border-radius:8px;margin-bottom:10px;'
+                    f'display:flex;justify-content:space-between;align-items:center;">'
+                    f'<span style="font-size:13px;font-weight:800;">'
+                    f'📍 Port de référence : {port["nom"]}</span>'
+                    f'<span style="font-size:11px;opacity:.85;">'
+                    f'à {port["distance_km"]} km · marnage {port["marnage_ref_m"]:.1f} m</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
 
-            # Annotations PM / BM
-            T_sec  = 12 * 3600 + 25 * 60
-            A      = 2.0 * tide["coefficient"] / 95.0
-            now    = datetime.now()
-            high_t = datetime.combine(date.today(), tide["pleine_mer"])
-            while high_t > now + timedelta(hours=6):
-                high_t -= timedelta(seconds=T_sec)
-            while high_t < now - timedelta(hours=6):
-                high_t += timedelta(seconds=T_sec)
+                # Métriques principales
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Coefficient (max jour)", coef_max if coef_max else "—",
+                              help="20-45 : mortes-eaux · 70-95 : vives-eaux · >100 : grandes marées")
+                col2.metric("Pleines mers",
+                              " · ".join(format_time_fr(p["datetime_utc"]) for p in today_pm) or "—")
+                col3.metric("Basses mers",
+                              " · ".join(format_time_fr(b["datetime_utc"]) for b in today_bm) or "—")
 
-            t0, t1 = times[0], times[-1]
-            for i in range(-1, 6):
-                pm = high_t + timedelta(seconds=i * T_sec)
-                bm = pm + timedelta(seconds=T_sec / 2)
-                if t0 <= pm <= t1:
-                    fig.add_vline(x=_ts(pm),
-                                  line=dict(color=C_BLUE, width=1, dash="dot"), opacity=0.5)
-                    fig.add_annotation(x=pm, y=A, text="PM", showarrow=False,
-                                       font=dict(color=C_BLUE, size=10), yshift=10)
-                if t0 <= bm <= t1:
-                    fig.add_annotation(x=bm, y=-A, text="BM", showarrow=False,
-                                       font=dict(color=C_ORANGE, size=10), yshift=-14)
+                # Tableau détaillé du jour
+                st.markdown("**🌊 Détail du jour**")
+                rows_html = ""
+                all_today = sorted(today_pm + today_bm, key=lambda x: x["datetime_utc"])
+                for e in all_today:
+                    is_pm = e["type"] == "PM"
+                    icon  = "⬆️" if is_pm else "⬇️"
+                    color = "#1565C0" if is_pm else "#E65100"
+                    bg    = "#E3F2FD" if is_pm else "#FFF3E0"
+                    label = "Pleine mer" if is_pm else "Basse mer"
+                    coef_txt = f"<br><span style=\"font-size:10px;color:#90A4AE;\">Coef {e['coefficient']}</span>" if e.get("coefficient") else ""
+                    rows_html += (
+                        f'<div style="display:flex;justify-content:space-between;align-items:center;'
+                        f'padding:8px 12px;background:{bg};border-radius:6px;margin-bottom:4px;">'
+                        f'<span style="font-weight:700;color:{color};">{icon} {label}</span>'
+                        f'<div style="text-align:right;">'
+                        f'<span style="font-size:14px;font-weight:800;color:{color};">'
+                        f'{format_time_fr(e["datetime_utc"])}</span><br>'
+                        f'<span style="font-size:11px;color:#546E7A;">{e["hauteur_m"]:.2f} m{coef_txt}</span>'
+                        f'</div></div>'
+                    )
+                st.markdown(rows_html, unsafe_allow_html=True)
 
-            _now_vline(fig)
-            fig.add_hline(y=0, line=dict(color="#aaaaaa", width=1))
-            fig.update_layout(
-                height=CHART_H,
-                margin=dict(l=10, r=10, t=16, b=10),
-                plot_bgcolor="#f0f4f8",
-                paper_bgcolor="rgba(0,0,0,0)",
-                showlegend=False,
-                xaxis=dict(type="date", tickformat="%a %H:%M", nticks=14,
-                           gridcolor="#dde"),
-                yaxis=dict(title="Hauteur (m)", gridcolor="#dde", zeroline=False),
-            )
-            st.plotly_chart(fig, use_container_width=True)
+                # Courbe de marée — interpolation cosinusoïdale entre PM/BM
+                events_dt = []
+                for e in tide_data["events"]:
+                    try:
+                        dt_local = datetime.fromisoformat(e["datetime_utc"].replace("Z","+00:00"))
+                        m = dt_local.month
+                        offset_h = 2 if 4 <= m <= 10 else 1
+                        dt_local += timedelta(hours=offset_h)
+                        dt_local = dt_local.replace(tzinfo=None)
+                        events_dt.append((dt_local, e["hauteur_m"], e["type"]))
+                    except Exception:
+                        pass
 
+                if len(events_dt) >= 2:
+                    # Génère une courbe cosinusoïdale entre chaque paire PM/BM
+                    times   = []
+                    heights = []
+                    for i in range(len(events_dt) - 1):
+                        t0, h0, _ = events_dt[i]
+                        t1, h1, _ = events_dt[i+1]
+                        # 60 points entre 2 extrema
+                        steps = 60
+                        for s in range(steps):
+                            frac = s / steps
+                            # Cosinus pour transition douce PM ↔ BM
+                            phase = (1 - math.cos(math.pi * frac)) / 2
+                            h     = h0 + (h1 - h0) * phase
+                            t     = t0 + (t1 - t0) * frac
+                            times.append(t)
+                            heights.append(h)
+                    times.append(events_dt[-1][0])
+                    heights.append(events_dt[-1][1])
+
+                    # Niveau moyen pour zone sable/eau
+                    h_min = min(heights)
+                    h_max = max(heights)
+                    h_mid = (h_min + h_max) / 2
+
+                    fig = go.Figure()
+                    # Zone haute (au dessus du niveau moyen)
+                    fig.add_trace(go.Scatter(
+                        x=times, y=heights,
+                        fill="tozeroy", mode="lines", name="Hauteur",
+                        fillcolor="rgba(21,101,192,0.15)",
+                        line=dict(color="#1565C0", width=2.5),
+                        hovertemplate="%{x|%a %d/%m %H:%M}<br><b>%{y:.2f} m</b><extra></extra>",
+                    ))
+                    # Points PM/BM
+                    pm_x = [e[0] for e in events_dt if e[2] == "PM"]
+                    pm_y = [e[1] for e in events_dt if e[2] == "PM"]
+                    bm_x = [e[0] for e in events_dt if e[2] == "BM"]
+                    bm_y = [e[1] for e in events_dt if e[2] == "BM"]
+                    fig.add_trace(go.Scatter(
+                        x=pm_x, y=pm_y, mode="markers+text",
+                        marker=dict(color="#1565C0", size=10),
+                        text=["PM"] * len(pm_x), textposition="top center",
+                        textfont=dict(size=10, color="#1565C0"),
+                        hovertemplate="<b>PM</b> %{x|%H:%M}<br>%{y:.2f} m<extra></extra>",
+                        showlegend=False,
+                    ))
+                    fig.add_trace(go.Scatter(
+                        x=bm_x, y=bm_y, mode="markers+text",
+                        marker=dict(color="#E65100", size=10),
+                        text=["BM"] * len(bm_x), textposition="bottom center",
+                        textfont=dict(size=10, color="#E65100"),
+                        hovertemplate="<b>BM</b> %{x|%H:%M}<br>%{y:.2f} m<extra></extra>",
+                        showlegend=False,
+                    ))
+
+                    _now_vline(fig)
+                    fig.add_hline(y=h_mid, line=dict(color="#bbb", width=1, dash="dot"),
+                                   annotation_text="Niveau moyen", annotation_position="right",
+                                   annotation_font=dict(size=9, color="#888"))
+                    fig.update_layout(
+                        height=CHART_H,
+                        margin=dict(l=10, r=10, t=16, b=10),
+                        plot_bgcolor="#f0f4f8",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        showlegend=False,
+                        xaxis=dict(type="date", tickformat="%a %H:%M", nticks=10,
+                                   gridcolor="#dde"),
+                        yaxis=dict(title="Hauteur (m)", gridcolor="#dde", zeroline=False),
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+
+                # Conseil pêche selon coef
+                if coef_max:
+                    if coef_max >= 95:
+                        conseil = "🌊 **Vives-eaux** — Bon moment pour le surfcasting, courants forts, bonne activité halieutique."
+                    elif coef_max >= 70:
+                        conseil = "🌊 **Marées moyennes** — Conditions correctes, activité variable selon les spots."
+                    elif coef_max >= 45:
+                        conseil = "💤 **Marées faibles** — Activité réduite, privilégier les heures de mouvement (1-2h avant/après PM)."
+                    else:
+                        conseil = "💤 **Mortes-eaux** — Faible activité, mais peut être bon pour certaines espèces sédentaires."
+                    st.info(conseil)
+
+                st.caption(f"📊 Données calculées par algorithme harmonique (4 constantes : M2, S2, N2, K1) "
+                            f"depuis le port de {port['nom']}. Précision ±15 min.")
+                # Sortir du try
+                return_after_tide = True
+            else:
+                raise ValueError("Pas de données dans la base")
+
+        # ── 2. Fallback ancien système si la base n'a pas de données ──
         except Exception:
-            tide = estimate_tide(date.today(),
-                                  datetime.now().time().replace(second=0, microsecond=0),
-                                  latitude, longitude)
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Coefficient", tide["coefficient"])
-            c2.metric("Phase",       tide["phase"])
-            c3.metric("Pleine mer",  tide["pleine_mer"].strftime("%H:%M"))
-            c4.metric("Basse mer",   tide["basse_mer"].strftime("%H:%M"))
+            try:
+                tide_df, tide = generate_tide_curve(date.today(), latitude, longitude, hours=48)
 
-        st.caption("⚠️ Courbe indicative sinusoïdale — non officielle. "
-                   "Consulte un marégramme SHOM avant toute sortie.")
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Coefficient",    tide["coefficient"])
+                c2.metric("Phase actuelle", tide["phase"])
+                c3.metric("Prochaine PM",   tide["pleine_mer"].strftime("%H:%M"))
+                c4.metric("Prochaine BM",   tide["basse_mer"].strftime("%H:%M"))
+
+                times   = tide_df["Heure"].tolist()
+                heights = tide_df["hauteur_m"].tolist()
+
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=times, y=[max(h, 0) for h in heights],
+                    fill="tozeroy", mode="none", fillcolor="rgba(21,101,192,0.18)", showlegend=False))
+                fig.add_trace(go.Scatter(x=times, y=[min(h, 0) for h in heights],
+                    fill="tozeroy", mode="none", fillcolor="rgba(210,180,120,0.22)", showlegend=False))
+                fig.add_trace(go.Scatter(x=times, y=heights, mode="lines",
+                    line=dict(color=C_BLUE, width=2.5),
+                    hovertemplate="%{x|%d/%m %H:%M} — <b>%{y:.2f} m</b><extra></extra>"))
+
+                _now_vline(fig)
+                fig.add_hline(y=0, line=dict(color="#aaaaaa", width=1))
+                fig.update_layout(height=CHART_H, margin=dict(l=10, r=10, t=16, b=10),
+                    plot_bgcolor="#f0f4f8", paper_bgcolor="rgba(0,0,0,0)", showlegend=False,
+                    xaxis=dict(type="date", tickformat="%a %H:%M", nticks=14, gridcolor="#dde"),
+                    yaxis=dict(title="Hauteur (m)", gridcolor="#dde", zeroline=False))
+                st.plotly_chart(fig, use_container_width=True)
+                st.caption("⚠️ Estimation lunaire — la base de marées officielle n'est pas encore chargée.")
+            except Exception:
+                tide = estimate_tide(date.today(),
+                                      datetime.now().time().replace(second=0, microsecond=0),
+                                      latitude, longitude)
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Coefficient", tide["coefficient"])
+                c2.metric("Phase",       tide["phase"])
+                c3.metric("Pleine mer",  tide["pleine_mer"].strftime("%H:%M"))
+                c4.metric("Basse mer",   tide["basse_mer"].strftime("%H:%M"))
+                st.caption("⚠️ Estimation indicative non officielle.")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
