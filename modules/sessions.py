@@ -557,14 +557,29 @@ def _render_sessions_list(terminee: bool, type_filter: str | None = None) -> Non
                 st.caption(f"💬 {safe_str(row.get('commentaire'))}")
 
             # Boutons — clé unique par tf_key + sid + row_idx
-            ca, cb = st.columns(2)
+            ca, cb, cc = st.columns(3)
             uk = f"{tf_key}_{sid}_{row_idx}"
             edit_key = f"sess_edit_{uk}"
             if ca.button("✏️ Modifier", key=f"sess_edit_btn_{uk}", use_container_width=True):
                 st.session_state[edit_key] = not st.session_state.get(edit_key, False)
                 st.rerun()
-            if cb.button("🗑️ Supprimer", key=f"sess_del_btn_{uk}", use_container_width=True):
+            share_key = f"sess_share_{uk}"
+            if cb.button("📤 Partager", key=f"sess_share_btn_{uk}", use_container_width=True):
+                st.session_state[share_key] = not st.session_state.get(share_key, False)
+                st.rerun()
+            if cc.button("🗑️ Supprimer", key=f"sess_del_btn_{uk}", use_container_width=True):
                 st.session_state[f"confirm_sess_{uk}"] = True
+
+            if st.session_state.get(share_key):
+                from ui.components import share_button
+                txt = (f"🎣 La Péchouille — Ma session de pêche\n\n"
+                       f"📍 {lieu}\n"
+                       f"📅 {d} · 🕒 {debut}→{fin}\n"
+                       f"🐟 {nb_cap} prise(s)\n"
+                       + (f"📏 Meilleure : {best_taille:.0f} cm\n" if best_taille else "")
+                       + (f"🐟 Espèces : {', '.join(especes_uniq[:4])}\n" if especes_uniq else "")
+                       + "\nApp : https://lapechouille.fr")
+                share_button(txt, share_key)
 
             if st.session_state.get(f"confirm_sess_{uk}"):
                 if confirm_destructive(f"sess_{uk}", f"Supprimer session {lieu} ?"):

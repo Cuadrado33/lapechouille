@@ -623,7 +623,34 @@ def render_profile_banner() -> None:
         else:
             photo_html = '<div style="width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:18px;">🎣</div>'
 
+        annees     = safe_str(profil.get("annees_peche")) or ""
+        esp_pref   = safe_str(profil.get("espece_preferee")) or ""
+
+        # Poisson record depuis les captures
+        record_txt = ""
+        try:
+            from core.database import load_captures
+            import pandas as pd
+            caps = load_captures()
+            if not caps.empty and "taille_cm" in caps.columns:
+                tt = pd.to_numeric(caps["taille_cm"], errors="coerce").dropna()
+                if not tt.empty:
+                    best = float(tt.max())
+                    best_row = caps.loc[caps["taille_cm"].astype(float) == best].iloc[0]
+                    esp_rec  = safe_str(best_row.get("espece")) or ""
+                    record_txt = f"🏆 {esp_rec} {int(best)} cm" if esp_rec else f"🏆 {int(best)} cm"
+        except Exception:
+            pass
+
         rs_html = "".join(rs_links)
+
+        # Ligne d'infos
+        infos = []
+        if niveau:   infos.append(f"<b>{niveau}</b>")
+        if annees:   infos.append(f"🎣 {annees} ans")
+        if zone:     infos.append(f"📍 {zone}")
+        if record_txt: infos.append(record_txt)
+        infos_html = "  ·  ".join(infos)
 
         st.markdown(
             f'<div style="background:linear-gradient(135deg,#0c2340,#1565C0);'
@@ -632,13 +659,65 @@ def render_profile_banner() -> None:
             f'{photo_html}'
             f'<div style="flex:1;min-width:0;">'
             f'<div style="font-size:14px;font-weight:800;">{pseudo}</div>'
-            f'<div style="font-size:11px;opacity:.8;">'
-            f'{"<b>" + niveau + "</b>" if niveau else ""}'
-            f'{"  ·  " + zone if zone else ""}'
-            f'</div></div>'
+            f'<div style="font-size:11px;opacity:.85;margin-top:2px;">{infos_html}</div>'
+            f'</div>'
             f'<div style="display:flex;align-items:center;gap:4px;">{rs_html}</div>'
             f'</div>',
             unsafe_allow_html=True,
         )
     except Exception:
         pass
+
+
+def share_button(text: str, key: str, label: str = "📤 Partager") -> None:
+    """
+    Affiche un bouton de partage avec menu WhatsApp / SMS / Email / Copier.
+    `text` est le contenu à partager.
+    """
+    import urllib.parse
+    encoded = urllib.parse.quote(text)
+    wa_url   = f"https://wa.me/?text={encoded}"
+    sms_url  = f"sms:?body={encoded}"
+    mail_url = f"mailto:?body={encoded}"
+    fb_url   = f"https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Flapechouille.fr&quote={encoded}"
+
+    sid = key.replace("-","_")
+    import streamlit.components.v1 as _cv
+    _cv.html(f"""
+<style>
+.sh-wrap-{sid} {{ margin:8px 0; }}
+.sh-grid-{sid} {{ display:grid;grid-template-columns:repeat(5,1fr);gap:6px; }}
+.sh-btn-{sid} {{
+  display:flex;align-items:center;justify-content:center;gap:4px;
+  padding:8px 6px;border-radius:8px;font-size:11px;font-weight:700;
+  text-decoration:none;cursor:pointer;border:none;color:#fff;
+}}
+.sh-btn-{sid}:hover {{ opacity:.85; }}
+.sh-cp-{sid}  {{ background:#1565C0; }}
+.sh-wa-{sid}  {{ background:#25D366; }}
+.sh-sms-{sid} {{ background:#007AFF; }}
+.sh-ml-{sid}  {{ background:#EA4335; }}
+.sh-fb-{sid}  {{ background:#1877F2; }}
+.sh-ok-{sid}  {{ display:none;font-size:10px;color:#2E7D32;margin-left:6px; }}
+</style>
+<div class="sh-wrap-{sid}">
+  <div class="sh-grid-{sid}">
+    <button class="sh-btn-{sid} sh-cp-{sid}" onclick="shCopy_{sid}()">📋 Copier
+      <span class="sh-ok-{sid}" id="shok_{sid}">✓</span></button>
+    <a class="sh-btn-{sid} sh-wa-{sid}"  href="{wa_url}"   target="_blank">💬 WhatsApp</a>
+    <a class="sh-btn-{sid} sh-sms-{sid}" href="{sms_url}">📱 SMS</a>
+    <a class="sh-btn-{sid} sh-ml-{sid}"  href="{mail_url}">✉️ Email</a>
+    <a class="sh-btn-{sid} sh-fb-{sid}"  href="{fb_url}"   target="_blank">👥 FB</a>
+  </div>
+</div>
+<script>
+function shCopy_{sid}(){{
+  if(navigator.clipboard){{
+    navigator.clipboard.writeText({repr(text)}).then(function(){{
+      var e=document.getElementById('shok_{sid}');
+      if(e){{e.style.display='inline';setTimeout(()=>e.style.display='none',2000);}}
+    }});
+  }}
+}}
+</script>
+""", height=70, scrolling=False)

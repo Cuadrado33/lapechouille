@@ -142,7 +142,7 @@ def render() -> None:
     st.markdown(
         '<div style="background:linear-gradient(135deg,#1565C0,#0c2340);'
         'color:#fff;padding:14px 20px;border-radius:8px;margin:8px 0 18px;">'
-        '<span style="font-size:18px;font-weight:800;">🪱 Spots appâts</span>'
+        '<span style="font-size:18px;font-weight:800;">🪱 Mes spots appâts</span>'
         '<div style="font-size:12px;opacity:.85;margin-top:3px;">'
         'Tes spots de récolte d\'appâts vivants et de pêche aux pièges.</div>'
         '</div>',

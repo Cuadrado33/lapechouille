@@ -478,13 +478,28 @@ def _render_captures_by_session(sessions: pd.DataFrame) -> None:
 </div>
 """, height=h_total, scrolling=False)
 
-            c1, c2 = st.columns(2)
+            c1, c2, c3 = st.columns(3)
             edit_key = f"cap_edit_open_{cap_id}"
             if c1.button("Modifier", key=f"cap_edit_btn_{cap_id}", use_container_width=True):
                 st.session_state[edit_key] = not st.session_state.get(edit_key, False)
                 st.rerun()
-            if c2.button("Supprimer", key=f"cap_del_{cap_id}", use_container_width=True):
+            share_key = f"cap_share_{cap_id}"
+            if c2.button("📤 Partager", key=f"cap_share_btn_{cap_id}", use_container_width=True):
+                st.session_state[share_key] = not st.session_state.get(share_key, False)
+                st.rerun()
+            if c3.button("Supprimer", key=f"cap_del_{cap_id}", use_container_width=True):
                 st.session_state[f"confirm_cap_{cap_id}"] = True
+
+            if st.session_state.get(share_key):
+                from ui.components import share_button
+                txt = (f"🎣 La Péchouille — Ma capture\n\n"
+                       f"🐟 {espece}\n"
+                       f"📏 {taille:.0f} cm · {poids_txt}\n"
+                       f"📍 {lieu}\n"
+                       f"🕐 {heure}\n"
+                       + (f"🪱 {appat}\n" if appat else "")
+                       + "\nApp : https://lapechouille.fr")
+                share_button(txt, share_key)
 
             if st.session_state.get(f"confirm_cap_{cap_id}"):
                 if confirm_destructive(f"cap_{cap_id}", f"Supprimer {espece} ?"):

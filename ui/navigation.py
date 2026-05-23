@@ -8,14 +8,14 @@ import streamlit as st
 
 NAV_GROUPS = [
     {
-        "title": "Accueil",
+        "title": "ACCUEIL",
         "items": [
             {"key": "accueil", "label": "Tableau de bord", "icon": "🏠"},
             {"key": "profil",  "label": "Mon profil",       "icon": "👤"},
         ],
     },
     {
-        "title": "🌊 Réseau La Péchouille",
+        "title": "🌊 RÉSEAU LA PÉCHOUILLE",
         "items": [
             {"key": "reseau",          "label": "Fil d'actualité",     "icon": "📰"},
             {"key": "reseau_amis",     "label": "Amis",                "icon": "👥"},
@@ -24,7 +24,7 @@ NAV_GROUPS = [
         ],
     },
     {
-        "title": "1 · Analyse des conditions",
+        "title": "ANALYSE DES CONDITIONS",
         "items": [
             {"key": "conditions", "label": "Mon spot",       "icon": "📍", "anchor": "spot"},
             {"key": "conditions", "label": "Cartographie",   "icon": "🗺️", "anchor": "carto"},
@@ -35,19 +35,19 @@ NAV_GROUPS = [
         ],
     },
     {
-        "title": "2 · Suivi pêche",
+        "title": "SUIVI PÊCHE",
         "items": [
             {"key": "mes_spots",      "label": "Mes spots",               "icon": "⭐"},
             {"key": "sessions",       "label": "Mes sessions",            "icon": "📓"},
             {"key": "competition",    "label": "Compétition",             "icon": "🎖️"},
             {"key": "captures",       "label": "Mes captures",            "icon": "🎣"},
             {"key": "identification", "label": "Identification poissons", "icon": "🐟"},
-            {"key": "spots_appats",   "label": "Spots appâts",            "icon": "🪱"},
+            {"key": "spots_appats",   "label": "Mes spots appâts",        "icon": "🪱"},
             {"key": "analyse",        "label": "Analyse performance",     "icon": "📈"},
         ],
     },
     {
-        "title": "3 · Matériel",
+        "title": "MATÉRIEL",
         "items": [
             {"key": "mat_cannes",    "label": "Cannes",                "icon": "🎯"},
             {"key": "mat_moulinets", "label": "Moulinets",             "icon": "⚙️"},
@@ -57,7 +57,7 @@ NAV_GROUPS = [
         ],
     },
     {
-        "title": "4 · Divers",
+        "title": "DIVERS",
         "items": [
             {"key": "photos",   "label": "Photos / souvenirs",   "icon": "📸"},
             {"key": "webcams",  "label": "Webcams plages",        "icon": "🌐"},
