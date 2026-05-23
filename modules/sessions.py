@@ -1450,6 +1450,22 @@ def _render_edit_capture_inline(cap, cap_id: int) -> None:
                                           index=list_index(TAILLES_HAMECONS, cap.get("taille_hamecon")),
                                           key=f"ec_tlh_{cap_id}")
 
+            # ── Fils (corps de ligne + empile) ──
+            with st.expander("〰️ Fils — Corps de ligne & Empile"):
+                fc1, fc2, fc3, fc4 = st.columns(4)
+                fil_corps  = fc1.text_input("Corps de ligne",
+                                              value=safe_str(cap.get("fil_corps_de_ligne")) or safe_str(cap.get("fil")),
+                                              key=f"ec_fil_{cap_id}", placeholder="Nylon, tresse...")
+                taille_fil = fc2.text_input("⌀ Diam.",
+                                              value=safe_str(cap.get("taille_corps_de_ligne")),
+                                              key=f"ec_tf_{cap_id}", placeholder="0.30mm")
+                empile_v   = fc3.text_input("Empile",
+                                              value=safe_str(cap.get("fil_empile")),
+                                              key=f"ec_emp_{cap_id}", placeholder="Fluoro...")
+                taille_emp = fc4.text_input("⌀ Diam.",
+                                              value=safe_str(cap.get("taille_empile")),
+                                              key=f"ec_te_{cap_id}", placeholder="0.25mm")
+
             # ── Heure + distance ──
             heure_cap = safe_str(cap.get("heure_capture")) or ""
             h_val = time(int(heure_cap[:2]), int(heure_cap[3:5])) if len(heure_cap) == 5 else \
@@ -1479,6 +1495,10 @@ def _render_edit_capture_inline(cap, cap_id: int) -> None:
                     "marque_hamecon": marque_h, "type_hamecon": type_h,
                     "modele_hamecon": modele_h, "taille_hamecon": taille_h,
                     "hamecon": f"{marque_h} | {type_h} | {modele_h} | {taille_h}",
+                    "fil_corps_de_ligne":    fil_corps  or None,
+                    "taille_corps_de_ligne": taille_fil or None,
+                    "fil_empile":            empile_v   or None,
+                    "taille_empile":         taille_emp or None,
                     "heure_capture": heure_edit.strftime("%H:%M"),
                     "distance_lancer_m": distance or None,
                     "relache": int(relache), "poisson_trophee": int(trophee),

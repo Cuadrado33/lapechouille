@@ -520,7 +520,53 @@ def _render_edit_capture(row, cap_id: int) -> None:
                                         key=f"ec_upl_{cap_id}")
             new_photo = upl if upl is not None else cam
 
+        # Charger options matériel
+        cannes_opts = ["— Aucune —"]
+        try:
+            df_c = load_materiel("canne")
+            if not df_c.empty:
+                for _, _r in df_c.iterrows():
+                    lbl = f"{safe_str(_r.get('marque'))} {safe_str(_r.get('modele'))}".strip()
+                    if lbl and lbl not in cannes_opts:
+                        cannes_opts.append(lbl)
+        except Exception: pass
+
+        moulinets_opts = ["— Aucun —"]
+        moulinets_bobines: dict = {}
+        try:
+            df_m = load_materiel("moulinet")
+            if not df_m.empty:
+                for _, _r in df_m.iterrows():
+                    lbl = f"{safe_str(_r.get('marque'))} {safe_str(_r.get('modele'))}".strip()
+                    if not lbl or lbl in moulinets_opts: continue
+                    moulinets_opts.append(lbl)
+                    # bobines associées (champ JSON)
+                    try:
+                        b_str = safe_str(_r.get("bobines_json"))
+                        if b_str:
+                            import json
+                            moulinets_bobines[lbl] = [b.get("nom","") for b in json.loads(b_str) if b.get("nom")]
+                    except Exception: pass
+        except Exception: pass
+
+        montages_opts = ["— Aucun —"]
+        try:
+            df_mo = load_materiel("montage")
+            if not df_mo.empty:
+                for _, _r in df_mo.iterrows():
+                    nom = safe_str(_r.get("montage_nom")) or safe_str(_r.get("modele"))
+                    if nom and nom not in montages_opts:
+                        montages_opts.append(nom)
+        except Exception: pass
+
+        # Ajouter les montages standards
+        for _m in MONTAGES:
+            if _m not in montages_opts:
+                montages_opts.append(_m)
+
         with st.form(f"edit_cap_{cap_id}"):
+            # ── Poisson ──────────────────────────────────────────────
+            st.markdown("**🐟 Poisson**")
             c1, c2, c3 = st.columns(3)
             with c1:
                 espece = st.selectbox("Espèce", ESPECES,
@@ -533,9 +579,9 @@ def _render_edit_capture(row, cap_id: int) -> None:
                 poids = st.number_input("Poids (g)", 0.0,
                                          value=safe_float(row.get("poids_g")),
                                          step=10.0, key=f"ec_p_{cap_id}")
-                appat = st.selectbox("Appât", APPATS,
-                                      index=list_index(APPATS, row.get("appat")),
-                                      key=f"ec_a_{cap_id}")
+                heure = st.text_input("Heure (HH:MM)",
+                                       value=safe_str(row.get("heure_capture")),
+                                       key=f"ec_h_{cap_id}")
             with c3:
                 relache = st.checkbox("↩️ Relâché",
                                        value=bool(row.get("relache")),
@@ -544,7 +590,81 @@ def _render_edit_capture(row, cap_id: int) -> None:
                                        value=bool(row.get("poisson_trophee") or row.get("poisson_trophe")),
                                        key=f"ec_tr_{cap_id}")
 
-            commentaire = st.text_area("Commentaire",
+            # ── Matériel ──────────────────────────────────────────────
+            st.markdown("**🎒 Matériel**")
+            mc1, mc2 = st.columns(2)
+            canne_cur = safe_str(row.get("canne"))
+            if canne_cur and canne_cur not in cannes_opts:
+                cannes_opts.append(canne_cur)
+            canne = mc1.selectbox("🎯 Canne", cannes_opts,
+                                   index=cannes_opts.index(canne_cur) if canne_cur in cannes_opts else 0,
+                                   key=f"ec_canne_{cap_id}")
+
+            moul_cur = safe_str(row.get("moulinet"))
+            if moul_cur and moul_cur not in moulinets_opts:
+                moulinets_opts.append(moul_cur)
+            moulinet = mc2.selectbox("⚙️ Moulinet", moulinets_opts,
+                                      index=moulinets_opts.index(moul_cur) if moul_cur in moulinets_opts else 0,
+                                      key=f"ec_moul_{cap_id}")
+
+            bobines_opts = ["— Aucune —"]
+            if moulinet and moulinet != "— Aucun —":
+                bobines_opts.extend(moulinets_bobines.get(moulinet, []))
+            bob_cur = safe_str(row.get("bobine_moulinet"))
+            if bob_cur and bob_cur not in bobines_opts:
+                bobines_opts.append(bob_cur)
+            bobine = st.selectbox("🧶 Bobine", bobines_opts,
+                                   index=bobines_opts.index(bob_cur) if bob_cur in bobines_opts else 0,
+                                   key=f"ec_bob_{cap_id}")
+
+            # Fils
+            fc1, fc2, fc3, fc4 = st.columns(4)
+            fil_corps  = fc1.text_input("〰️ Corps de ligne",
+                                          value=safe_str(row.get("fil_corps_de_ligne")) or safe_str(row.get("fil")),
+                                          key=f"ec_fil_{cap_id}")
+            taille_fil = fc2.text_input("⌀ Diam. corps",
+                                          value=safe_str(row.get("taille_corps_de_ligne")),
+                                          key=f"ec_tf_{cap_id}", placeholder="0.30mm")
+            empile     = fc3.text_input("🪢 Empile",
+                                          value=safe_str(row.get("fil_empile")),
+                                          key=f"ec_emp_{cap_id}")
+            taille_emp = fc4.text_input("⌀ Diam. empile",
+                                          value=safe_str(row.get("taille_empile")),
+                                          key=f"ec_te_{cap_id}", placeholder="0.25mm")
+
+            # Montage
+            mont_cur = safe_str(row.get("montage"))
+            if mont_cur and mont_cur not in montages_opts:
+                montages_opts.append(mont_cur)
+            montage = st.selectbox("🧵 Montage", montages_opts,
+                                    index=montages_opts.index(mont_cur) if mont_cur in montages_opts else 0,
+                                    key=f"ec_mont_{cap_id}")
+
+            # Hameçon
+            hc1, hc2, hc3, hc4 = st.columns(4)
+            ham_marque = hc1.text_input("🪝 Marque ham.",
+                                          value=safe_str(row.get("marque_hamecon")),
+                                          key=f"ec_hm_{cap_id}")
+            ham_type   = hc2.text_input("Type",
+                                          value=safe_str(row.get("type_hamecon")),
+                                          key=f"ec_ht_{cap_id}")
+            ham_modele = hc3.text_input("Modèle",
+                                          value=safe_str(row.get("modele_hamecon")),
+                                          key=f"ec_hmo_{cap_id}")
+            ham_taille = hc4.text_input("# Taille",
+                                          value=safe_str(row.get("taille_hamecon")),
+                                          key=f"ec_hta_{cap_id}")
+
+            # Appât + distance
+            ac1, ac2 = st.columns(2)
+            appat = ac1.selectbox("🪱 Appât", APPATS,
+                                   index=list_index(APPATS, row.get("appat")),
+                                   key=f"ec_a_{cap_id}")
+            distance = ac2.number_input("📐 Distance lancer (m)", 0.0,
+                                          value=safe_float(row.get("distance_lancer_m")),
+                                          step=5.0, key=f"ec_d_{cap_id}")
+
+            commentaire = st.text_area("💬 Commentaire",
                                         value=safe_str(row.get("commentaire")),
                                         key=f"ec_com_{cap_id}")
 
@@ -553,7 +673,21 @@ def _render_edit_capture(row, cap_id: int) -> None:
                 data = {
                     "espece": espece, "taille_cm": taille or None,
                     "poids_g": poids or None, "poids_estime_g": poids_est,
+                    "heure_capture": heure or None,
                     "appat": appat if appat != "Non renseigné" else None,
+                    "canne":    None if canne    in ("— Aucune —", "") else canne,
+                    "moulinet": None if moulinet in ("— Aucun —", "") else moulinet,
+                    "bobine_moulinet": None if bobine in ("— Aucune —", "") else bobine,
+                    "fil_corps_de_ligne":   fil_corps  or None,
+                    "taille_corps_de_ligne": taille_fil or None,
+                    "fil_empile":  empile     or None,
+                    "taille_empile": taille_emp or None,
+                    "montage": None if montage in ("— Aucun —", "— Choisir —", "") else montage,
+                    "marque_hamecon": ham_marque or None,
+                    "type_hamecon":   ham_type   or None,
+                    "modele_hamecon": ham_modele or None,
+                    "taille_hamecon": ham_taille or None,
+                    "distance_lancer_m": distance or None,
                     "relache": int(relache), "poisson_trophee": int(trophee),
                     "commentaire": commentaire,
                     "updated_at": datetime.now().isoformat(timespec="seconds"),
