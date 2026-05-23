@@ -967,9 +967,10 @@ def _render_captures_by_fish(sessions: pd.DataFrame) -> None:
                         unsafe_allow_html=True,
                     )
 
-                # Boutons Modifier (vert via CSS global) / Supprimer (rouge via CSS global)
-                ba1, ba2 = st.columns(2)
+                # Boutons Modifier / Partager / Supprimer
+                ba1, ba2, ba3 = st.columns(3)
                 edit_key = f"bf_edit_open_{cap_id}"
+                share_key = f"bf_share_{cap_id}"
                 with ba1:
                     lbl_e = "✕ Fermer" if st.session_state.get(edit_key) else "✏️ Modifier"
                     if st.button(lbl_e, key=f"bf_edit_btn_{cap_id}",
@@ -977,9 +978,47 @@ def _render_captures_by_fish(sessions: pd.DataFrame) -> None:
                         st.session_state[edit_key] = not st.session_state.get(edit_key, False)
                         st.rerun()
                 with ba2:
+                    if st.button("📤 Partager", key=f"bf_share_btn_{cap_id}",
+                                  use_container_width=True):
+                        st.session_state[share_key] = not st.session_state.get(share_key, False)
+                        st.rerun()
+                with ba3:
                     if st.button("🗑️ Supprimer", key=f"bf_del_{cap_id}",
                                   use_container_width=True):
                         st.session_state[f"bf_confirm_{cap_id}"] = True
+
+                if st.session_state.get(share_key):
+                    from ui.components import share_button_v2
+                    txt = (f"🎣 La Péchouille — Ma capture\n\n"
+                           f"🐟 {espece}\n"
+                           + (f"📏 {taille:.0f} cm\n" if taille else "")
+                           + (f"⚖️ {poids_txt}\n" if poids_txt else "")
+                           + (f"📍 {lieu_str}\n" if lieu_str else "")
+                           + (f"🕐 {heure}\n" if heure else "")
+                           + (f"🪱 {appat}\n" if appat else "")
+                           + "\nApp : https://lapechouille.fr")
+                    meta = {
+                        "espece":    espece,
+                        "taille_cm": taille,
+                        "poids_g":   safe_float(row.get("poids_g")) or safe_float(row.get("poids_estime_g")),
+                        "lieu":      lieu_str,
+                        "heure":     heure,
+                        "appat":     appat,
+                        "montage":   montage,
+                        "canne":     safe_str(row.get("canne")),
+                        "moulinet":  safe_str(row.get("moulinet")),
+                        "hamecon":   ham,
+                        "distance":  safe_float(row.get("distance_lancer_m")),
+                    }
+                    share_button_v2(
+                        item_type="capture",
+                        item_id=cap_id,
+                        item_label=f"{espece} {taille:.0f}cm" if taille else espece,
+                        text_external=txt,
+                        metadata=meta,
+                        photo_url=photo_path if photo_path and str(photo_path).startswith("http") else "",
+                        key=f"bf_cap_{cap_id}",
+                    )
 
                 if st.session_state.get(f"bf_confirm_{cap_id}"):
                     if confirm_destructive(f"bf_cap_{cap_id}",

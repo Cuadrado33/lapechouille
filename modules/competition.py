@@ -187,7 +187,8 @@ def _render_new_competition() -> None:
                 st.cache_data.clear()
                 st.session_state["comp_current_id"] = sid
                 st.success(f"✅ Compétition « {nom_comp} » démarrée à {now_t.strftime('%H:%M')} !")
-                st.balloons()
+                from ui.components import fish_animation
+                fish_animation()
                 st.rerun()
 
 

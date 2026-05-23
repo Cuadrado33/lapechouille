@@ -882,9 +882,62 @@ def share_button_v2(
                     )
                     if post:
                         st.success("🎉 Publié sur le Réseau !")
-                        st.balloons()
+                        fish_animation()
                     # le message d'erreur est déjà affiché par share_to_reseau
 
     # ── Onglet Réseaux externes ───────────────────────────────────
     with tab_externes:
         share_button(text_external, key=f"ext_{key}", label="Partager")
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  Animation poissons qui montent (remplace st.balloons)
+# ═══════════════════════════════════════════════════════════════════
+
+def fish_animation() -> None:
+    """Lance une animation de poissons qui montent (façon balloons)."""
+    import streamlit.components.v1 as _comp
+    import random, time
+    # Clé unique pour éviter la mise en cache
+    nonce = int(time.time() * 1000)
+
+    fishes = ["🐟", "🐠", "🐡", "🎣", "🦈"]
+    items_html = ""
+    for i in range(40):
+        emoji = random.choice(fishes)
+        left  = random.randint(0, 95)
+        delay = random.uniform(0, 1.5)
+        dur   = random.uniform(3, 5)
+        size  = random.randint(28, 50)
+        items_html += (
+            f'<div class="fish-{nonce}" style="left:{left}%;'
+            f'animation-delay:{delay:.2f}s;'
+            f'animation-duration:{dur:.2f}s;'
+            f'font-size:{size}px;">{emoji}</div>'
+        )
+
+    _comp.html(f"""
+<style>
+  .fish-container-{nonce} {{
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 99999;
+  }}
+  .fish-{nonce} {{
+    position: absolute;
+    bottom: -60px;
+    animation-name: float-up-{nonce};
+    animation-timing-function: ease-out;
+    animation-fill-mode: forwards;
+    will-change: transform;
+  }}
+  @keyframes float-up-{nonce} {{
+    0%   {{ transform: translateY(0) rotate(0deg);     opacity: 1; }}
+    50%  {{ transform: translateY(-50vh) rotate(15deg); opacity: 1; }}
+    100% {{ transform: translateY(-120vh) rotate(-15deg); opacity: 0; }}
+  }}
+</style>
+<div class="fish-container-{nonce}">{items_html}</div>
+""", height=0, scrolling=False)
