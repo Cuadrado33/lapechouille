@@ -158,7 +158,7 @@ def _render_cards(df, kind):
                         st.session_state[f"confirm_{kind}_{item_id}"] = True
 
                     if st.session_state.get(share_key):
-                        from ui.components import share_button
+                        from ui.components import share_button_v2
                         long_c  = safe_str(row.get("longueur_canne")) if "longueur_canne" in row.index else ""
                         puis_c  = safe_str(row.get("puissance_canne")) if "puissance_canne" in row.index else ""
                         txt = (f"🎣 La Péchouille — Ma canne\n\n"
@@ -167,7 +167,21 @@ def _render_cards(df, kind):
                                + (f"⚡ {puis_c}\n" if puis_c else "")
                                + (f"État : {etat}\n" if etat else "")
                                + "\nApp : https://lapechouille.fr")
-                        share_button(txt, share_key)
+                        meta = {
+                            "marque":     marque,
+                            "modele":     modele,
+                            "longueur":   long_c,
+                            "puissance":  puis_c,
+                            "etat":       etat,
+                        }
+                        share_button_v2(
+                            item_type="materiel",
+                            item_id=item_id,
+                            item_label=f"{marque} {modele}",
+                            text_external=txt,
+                            metadata=meta,
+                            key=f"canne_{item_id}",
+                        )
 
                     if st.session_state.get(f"confirm_{kind}_{item_id}"):
                         if confirm_destructive(f"{kind}_{item_id}", f"Supprimer {marque} {modele} ?"):

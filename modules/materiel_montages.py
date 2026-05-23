@@ -575,13 +575,24 @@ def _render_list() -> None:
                     st.session_state[f"mon_confirm_{item_id}"] = True
 
             if st.session_state.get(share_key):
-                from ui.components import share_button
+                from ui.components import share_button_v2
                 nom_mont = safe_str(row.get("modele")) or safe_str(row.get("marque")) or "Mon montage"
                 txt = (f"🎣 La Péchouille — Mon montage\n\n"
                        f"🧵 {nom_mont}\n"
                        + (f"📐 {len(empiles)} empile(s)\n" if empiles else "")
                        + "\nApp : https://lapechouille.fr")
-                share_button(txt, share_key)
+                meta = {
+                    "modele":  nom_mont,
+                    "marque":  safe_str(row.get("marque")),
+                }
+                share_button_v2(
+                    item_type="materiel",
+                    item_id=item_id,
+                    item_label=nom_mont,
+                    text_external=txt,
+                    metadata=meta,
+                    key=f"mont_{item_id}",
+                )
 
             # Formulaire d'édition (si déplié)
             if st.session_state.get(f"mon_edit_{item_id}"):

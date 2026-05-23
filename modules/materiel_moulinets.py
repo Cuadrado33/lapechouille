@@ -381,11 +381,19 @@ def _render_list() -> None:
                     st.session_state[f"confirm_{item_id}"] = True
 
             if st.session_state.get(share_key):
-                from ui.components import share_button
+                from ui.components import share_button_v2
                 txt = (f"🎣 La Péchouille — Mon moulinet\n\n"
                        f"⚙️ {marque} {modele}\n"
                        + "\nApp : https://lapechouille.fr")
-                share_button(txt, share_key)
+                meta = {"marque": marque, "modele": modele}
+                share_button_v2(
+                    item_type="materiel",
+                    item_id=item_id,
+                    item_label=f"{marque} {modele}",
+                    text_external=txt,
+                    metadata=meta,
+                    key=f"moul_{item_id}",
+                )
 
             if st.session_state.get(f"confirm_{item_id}"):
                 if confirm_destructive(f"moul_{item_id}", f"Supprimer {marque} {modele} ?"):
