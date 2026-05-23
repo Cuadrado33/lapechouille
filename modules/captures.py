@@ -727,19 +727,13 @@ def _render_captures_by_fish(sessions: pd.DataFrame) -> None:
                 col_img, col_main, col_size = st.columns([1, 3, 1])
                 with col_img:
                     if photo_path and str(photo_path).startswith("http"):
-                        if str(photo_path).startswith("http"):
-                            _comp.html(
-                                f'<img src="{photo_path}" style="width:100%;aspect-ratio:1;'
-                                f'object-fit:cover;border-radius:8px;">',
-                                height=110, scrolling=False,
-                            )
-                        else:
-                            import streamlit.components.v1 as _cv2
-                            _cv2.html(
-                                f'<img src="{photo_path}" style="width:100%;max-height:200px;'
-                                f'object-fit:contain;border-radius:8px;">',
-                                height=208, scrolling=False,
-                            )
+                        _comp.html(
+                            f'<a href="{photo_path}" target="_blank" style="display:block;text-decoration:none;">'
+                            f'<img src="{photo_path}" style="width:100%;aspect-ratio:1;'
+                            f'object-fit:cover;border-radius:8px;cursor:zoom-in;'
+                            f'border:2px solid #1565C0;"></a>',
+                            height=110, scrolling=False,
+                        )
                     else:
                         from data.fish_data import get_fish_visual
                         visual_html = get_fish_visual(espece, size=100)
