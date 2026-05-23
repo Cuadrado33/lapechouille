@@ -47,10 +47,21 @@ def render() -> None:
             modele = safe_str(row.get("modele")) or "—"
             cat = safe_str(row.get("categorie")) or "—"
             with st.container(border=True):
-                c1, c2 = st.columns([4, 1])
+                c1, c2, c3 = st.columns([4, 1, 1])
                 c1.markdown(f"**{cat}** — {marque} {modele}")
                 c1.caption(safe_str(row.get("commentaire")) or "")
-                if c2.button("🗑️ Supprimer", key=f"del_div_{item_id}", use_container_width=True):
+                share_key = f"share_div_{item_id}"
+                if c2.button("📤", key=f"share_btn_div_{item_id}", use_container_width=True, help="Partager"):
+                    st.session_state[share_key] = not st.session_state.get(share_key, False)
+                    st.rerun()
+                if c3.button("🗑️", key=f"del_div_{item_id}", use_container_width=True, help="Supprimer"):
                     delete_row("materiel", item_id)
                     st.cache_data.clear()
                     st.rerun()
+
+                if st.session_state.get(share_key):
+                    from ui.components import share_button
+                    txt = (f"🎣 La Péchouille — Mon matériel\n\n"
+                           f"🎒 {cat} — {marque} {modele}\n"
+                           + "\nApp : https://lapechouille.fr")
+                    share_button(txt, share_key)

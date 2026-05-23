@@ -26,12 +26,13 @@ NAV_GROUPS = [
     {
         "title": "ANALYSE DES CONDITIONS",
         "items": [
-            {"key": "conditions", "label": "Mon spot",       "icon": "📍", "anchor": "spot"},
-            {"key": "conditions", "label": "Cartographie",   "icon": "🗺️", "anchor": "carto"},
-            {"key": "conditions", "label": "Marée",          "icon": "🌊", "anchor": "maree"},
-            {"key": "conditions", "label": "Météo générale", "icon": "🌦️", "anchor": "meteo_gen"},
-            {"key": "conditions", "label": "Soleil & Lune",  "icon": "☀️", "anchor": "astro"},
-            {"key": "conditions", "label": "Réglementation", "icon": "⚖️", "anchor": "regle"},
+            {"key": "conditions", "label": "Mon spot",            "icon": "📍", "anchor": "spot"},
+            {"key": "conditions", "label": "Pêcheurs autour de moi", "icon": "👥", "anchor": "pecheurs_autour"},
+            {"key": "conditions", "label": "Cartographie",        "icon": "🗺️", "anchor": "carto"},
+            {"key": "conditions", "label": "Marée",               "icon": "🌊", "anchor": "maree"},
+            {"key": "conditions", "label": "Météo générale",      "icon": "🌦️", "anchor": "meteo_gen"},
+            {"key": "conditions", "label": "Soleil & Lune",       "icon": "☀️", "anchor": "astro"},
+            {"key": "conditions", "label": "Réglementation",      "icon": "⚖️", "anchor": "regle"},
         ],
     },
     {

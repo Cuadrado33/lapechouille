@@ -564,9 +564,24 @@ def _render_list() -> None:
                     st.session_state[f"mon_edit_{item_id}"] = not edit_open
                     st.rerun()
 
+                share_key = f"share_mont_{item_id}"
+                if st.button("📤 Partager", key=f"share_mont_{item_id}",
+                              use_container_width=True):
+                    st.session_state[share_key] = not st.session_state.get(share_key, False)
+                    st.rerun()
+
                 if st.button("🗑️ Supprimer", key=f"del_mont_{item_id}",
                               use_container_width=True, type="secondary"):
                     st.session_state[f"mon_confirm_{item_id}"] = True
+
+            if st.session_state.get(share_key):
+                from ui.components import share_button
+                nom_mont = safe_str(row.get("modele")) or safe_str(row.get("marque")) or "Mon montage"
+                txt = (f"🎣 La Péchouille — Mon montage\n\n"
+                       f"🧵 {nom_mont}\n"
+                       + (f"📐 {len(empiles)} empile(s)\n" if empiles else "")
+                       + "\nApp : https://lapechouille.fr")
+                share_button(txt, share_key)
 
             # Formulaire d'édition (si déplié)
             if st.session_state.get(f"mon_edit_{item_id}"):

@@ -791,6 +791,27 @@ def render() -> None:
             scroll_to_anchor(anchor)
         return
 
+    # ── Pêcheurs autour de moi (à développer) ─────────────────────────
+    section("Pêcheurs autour de moi", icon="👥", anchor_id="pecheurs_autour")
+    with st.container(border=True):
+        st.markdown(
+            '<div style="background:linear-gradient(135deg,#1565C0,#0c2340);'
+            'color:#fff;padding:14px 18px;border-radius:10px;text-align:center;">'
+            '<div style="font-size:32px;margin-bottom:6px;">🗺️ 👥 🎣</div>'
+            '<div style="font-size:15px;font-weight:800;margin-bottom:4px;">'
+            'Bientôt disponible</div>'
+            '<div style="font-size:12px;opacity:.85;line-height:1.5;">'
+            'Découvre les pêcheurs autour de toi en mode <b>Snap</b> :<br>'
+            '• Carte temps réel avec position des pêcheurs<br>'
+            '• Captures partagées en direct<br>'
+            '• Spots populaires à proximité<br>'
+            '• Tchat de zone</div>'
+            '<div style="font-size:11px;opacity:.7;margin-top:10px;">'
+            '🚧 Fonctionnalité en cours de développement</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
     today  = date.today()
     now_dt = datetime.now()
     end_2d = (today + timedelta(days=1)).isoformat()

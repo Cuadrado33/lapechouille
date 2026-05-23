@@ -337,18 +337,26 @@ def _render_records() -> None:
                         f'display:flex;align-items:center;justify-content:center;">'
                         f'{emoji}</div>')
 
-        # Photo personnelle (vignette) — URL Supabase directe
+        # Photo personnelle (vignette) — URL Supabase + lightbox
         photo_html = ""
         if photo and str(photo).startswith("http"):
             tag = "🏆" if has_trophy else "📸"
+            lb_id = f"lb_troph_{r.get('espece','').replace(' ','_')}_{hash(photo)%10000}"
             photo_html = (
                 f'<div style="position:relative;width:100%;height:100%;">'
-                f'<img src="{photo}" '
-                f'style="width:100%;height:100%;object-fit:cover;'
+                f'<img src="{photo}" onclick="document.getElementById(\'{lb_id}\').style.display=\'flex\'"'
+                f'style="width:100%;height:100%;object-fit:cover;cursor:pointer;'
                 f'border-radius:8px;border:2px solid #FFB300;">'
                 f'<div style="position:absolute;top:4px;right:4px;background:#FFB300;'
                 f'color:#fff;font-size:11px;font-weight:700;padding:2px 6px;'
                 f'border-radius:6px;">{tag}</div>'
+                f'<div id="{lb_id}" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);'
+                f'z-index:9999;align-items:center;justify-content:center;flex-direction:column;">'
+                f'<img src="{photo}" style="max-width:90vw;max-height:85vh;object-fit:contain;border-radius:8px;">'
+                f'<button onclick="document.getElementById(\'{lb_id}\').style.display=\'none\'"'
+                f'style="margin-top:14px;background:rgba(255,255,255,.2);color:#fff;border:none;'
+                f'padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;">Fermer</button>'
+                f'</div>'
                 f'</div>'
             )
 

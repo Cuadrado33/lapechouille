@@ -141,16 +141,33 @@ def _render_cards(df, kind):
                     if com:
                         st.caption(f"💬 {com}")
 
-                    # Boutons Modifier / Supprimer
-                    ca, cb = st.columns(2)
-                    edit_key = f"edit_{kind}_{item_id}"
+                    # Boutons Modifier / Partager / Supprimer
+                    ca, cb, cc = st.columns(3)
+                    edit_key  = f"edit_{kind}_{item_id}"
+                    share_key = f"share_{kind}_{item_id}"
                     if ca.button("✏️", key=f"edit_btn_{kind}_{item_id}",
                                   use_container_width=True, help="Modifier"):
                         st.session_state[edit_key] = not st.session_state.get(edit_key, False)
                         st.rerun()
-                    if cb.button("🗑️", key=f"del_{kind}_{item_id}",
+                    if cb.button("📤", key=f"share_btn_{kind}_{item_id}",
+                                  use_container_width=True, help="Partager"):
+                        st.session_state[share_key] = not st.session_state.get(share_key, False)
+                        st.rerun()
+                    if cc.button("🗑️", key=f"del_{kind}_{item_id}",
                                   use_container_width=True, help="Supprimer"):
                         st.session_state[f"confirm_{kind}_{item_id}"] = True
+
+                    if st.session_state.get(share_key):
+                        from ui.components import share_button
+                        long_c  = safe_str(row.get("longueur_canne")) if "longueur_canne" in row.index else ""
+                        puis_c  = safe_str(row.get("puissance_canne")) if "puissance_canne" in row.index else ""
+                        txt = (f"🎣 La Péchouille — Ma canne\n\n"
+                               f"🎯 {marque} {modele}\n"
+                               + (f"📏 {long_c}\n" if long_c else "")
+                               + (f"⚡ {puis_c}\n" if puis_c else "")
+                               + (f"État : {etat}\n" if etat else "")
+                               + "\nApp : https://lapechouille.fr")
+                        share_button(txt, share_key)
 
                     if st.session_state.get(f"confirm_{kind}_{item_id}"):
                         if confirm_destructive(f"{kind}_{item_id}", f"Supprimer {marque} {modele} ?"):

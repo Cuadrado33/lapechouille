@@ -369,12 +369,23 @@ def _render_list() -> None:
 
             with c_actions:
                 edit_key = f"edit_moul_{item_id}"
+                share_key = f"share_moul_{item_id}"
                 edit_lbl = "✕ Fermer" if st.session_state.get(edit_key) else "✏️ Modifier"
                 if st.button(edit_lbl, key=f"edit_btn_{item_id}", use_container_width=True):
                     st.session_state[edit_key] = not st.session_state.get(edit_key, False)
                     st.rerun()
+                if st.button("📤 Partager", key=f"share_btn_moul_{item_id}", use_container_width=True):
+                    st.session_state[share_key] = not st.session_state.get(share_key, False)
+                    st.rerun()
                 if st.button("🗑️ Supprimer", key=f"del_{item_id}", use_container_width=True):
                     st.session_state[f"confirm_{item_id}"] = True
+
+            if st.session_state.get(share_key):
+                from ui.components import share_button
+                txt = (f"🎣 La Péchouille — Mon moulinet\n\n"
+                       f"⚙️ {marque} {modele}\n"
+                       + "\nApp : https://lapechouille.fr")
+                share_button(txt, share_key)
 
             if st.session_state.get(f"confirm_{item_id}"):
                 if confirm_destructive(f"moul_{item_id}", f"Supprimer {marque} {modele} ?"):
