@@ -388,7 +388,7 @@ def _render_captures_by_session(sessions: pd.DataFrame) -> None:
         if photo_path and str(photo_path).startswith("http"):
             photo_block = f"""
 <img src="{photo_path}" onclick="document.getElementById('{lb_id}').style.display='flex'"
-  style="width:100%;max-height:260px;object-fit:contain;border-radius:8px;
+  style="width:100%;height:280px;object-fit:cover;border-radius:8px;
   margin:8px 0;cursor:pointer;background:#f0f4f8;display:block;">
 <div id="{lb_id}" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);
   z-index:9999;align-items:center;justify-content:center;flex-direction:column;">
@@ -442,7 +442,7 @@ def _render_captures_by_session(sessions: pd.DataFrame) -> None:
         h_base   = 80   # header seulement (sans SVG)
         h_rows   = (len(poisson_rows) + len(tech_rows)) * 28
         h_titles = 30 + (30 if tech_html else 0)
-        h_photo  = 270 if photo_block else 0
+        h_photo  = 290 if photo_block else 0
         h_com    = 50  if commentaire else 0
         h_total  = h_base + h_rows + h_titles + h_photo + h_com + 30
 
