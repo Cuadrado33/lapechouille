@@ -376,7 +376,28 @@ def _render_list() -> None:
                     st.session_state[f"sp_share_{spot_id}"] = not share_open
                     st.rerun()
                 if share_open:
-                    share_location_widget(lat, lon, nom=nom)
+                    from ui.components import share_button_v2
+                    txt = (f"🎣 La Péchouille — Spot de pêche\n\n"
+                           f"📍 {nom}\n"
+                           + (f"🏖️ {fond}\n" if fond != "—" else "")
+                           + (f"📏 Profondeur : {prof}\n" if prof != "—" else "")
+                           + (f"📍 {lat:.5f}, {lon:.5f}\n" if lat and lon else "")
+                           + "\nApp : https://lapechouille.fr")
+                    meta = {
+                        "nom":         nom,
+                        "type_spot":   fond if fond != "—" else "",
+                        "commentaire": safe_str(row.get("commentaire")) or "",
+                    }
+                    share_button_v2(
+                        item_type="spot",
+                        item_id=spot_id,
+                        item_label=nom,
+                        text_external=txt,
+                        metadata=meta,
+                        photo_url=safe_str(row.get("photo_path")) if str(row.get("photo_path","")).startswith("http") else "",
+                        key=f"spot_{spot_id}",
+                        is_spot=True,
+                    )
 
             with col_desc:
                 # Badges fond / profondeur

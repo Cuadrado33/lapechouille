@@ -666,7 +666,7 @@ def _render_sessions_list(terminee: bool, type_filter: str | None = None) -> Non
                 st.session_state[f"confirm_sess_{uk}"] = True
 
             if st.session_state.get(share_key):
-                from ui.components import share_button
+                from ui.components import share_button_v2
                 txt = (f"🎣 La Péchouille — Ma session de pêche\n\n"
                        f"📍 {lieu}\n"
                        f"📅 {d} · 🕒 {debut}→{fin}\n"
@@ -674,7 +674,27 @@ def _render_sessions_list(terminee: bool, type_filter: str | None = None) -> Non
                        + (f"📏 Meilleure : {best_taille:.0f} cm\n" if best_taille else "")
                        + (f"🐟 Espèces : {', '.join(especes_uniq[:4])}\n" if especes_uniq else "")
                        + "\nApp : https://lapechouille.fr")
-                share_button(txt, share_key)
+                meteo_summary = []
+                if safe_str(row.get("vent_vitesse")):    meteo_summary.append(f"💨 {float(row['vent_vitesse']):.0f} km/h")
+                if safe_str(row.get("vague_hauteur")):   meteo_summary.append(f"🌊 {float(row['vague_hauteur']):.1f}m")
+                if safe_str(row.get("temperature_air")): meteo_summary.append(f"🌡️ {float(row['temperature_air']):.0f}°C")
+                meta = {
+                    "lieu":    lieu,
+                    "date":    d,
+                    "type":    type_s,
+                    "nb_caps": nb_cap,
+                    "best":    best_taille,
+                    "meteo":   " · ".join(meteo_summary) if meteo_summary else "",
+                    "maree":   safe_str(row.get("coefficient_maree")),
+                }
+                share_button_v2(
+                    item_type="session",
+                    item_id=sid,
+                    item_label=f"Session {lieu}",
+                    text_external=txt,
+                    metadata=meta,
+                    key=f"sess_{uk}",
+                )
 
             if st.session_state.get(f"confirm_sess_{uk}"):
                 if confirm_destructive(f"sess_{uk}", f"Supprimer session {lieu} ?"):
