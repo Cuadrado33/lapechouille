@@ -387,16 +387,11 @@ def _render_captures_by_session(sessions: pd.DataFrame) -> None:
         photo_block = ""
         if photo_path and str(photo_path).startswith("http"):
             photo_block = f"""
-<img src="{photo_path}" onclick="document.getElementById('{lb_id}').style.display='flex'"
-  style="width:100%;height:280px;object-fit:cover;border-radius:8px;
-  margin:8px 0;cursor:pointer;background:#f0f4f8;display:block;">
-<div id="{lb_id}" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);
-  z-index:9999;align-items:center;justify-content:center;flex-direction:column;">
-  <img src="{photo_path}" style="max-width:90vw;max-height:85vh;object-fit:contain;border-radius:8px;">
-  <button onclick="document.getElementById('{lb_id}').style.display='none'"
-    style="margin-top:14px;background:rgba(255,255,255,.2);color:#fff;border:none;
-    padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;">Fermer</button>
-</div>"""
+<a href="{photo_path}" target="_blank" style="display:block;text-decoration:none;">
+  <img src="{photo_path}"
+    style="width:100%;height:280px;object-fit:cover;border-radius:8px;
+    margin:8px 0;cursor:zoom-in;background:#f0f4f8;display:block;">
+</a>"""
 
         # Badges
         badges = []
