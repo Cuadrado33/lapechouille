@@ -855,146 +855,163 @@ def _render_session_captures(sid: int, terminee: bool) -> None:
 
         st.markdown("")
 
-    st.caption(f"**{nb} capture(s)** · Clique sur ✏️ pour modifier")
+    st.caption(f"**{nb} capture(s)** · Clique sur une carte pour la déplier")
 
     # Charger toutes les captures pour records par espèce
     from core.database import load_captures, load_sessions
     all_caps = load_captures()
     all_sess = load_sessions()
 
-    for i, (_, cap) in enumerate(caps.iterrows()):
-        cap_id      = int(cap["id"])
-        espece      = safe_str(cap.get("espece")) or "—"
-        taille      = safe_float(cap.get("taille_cm"))
-        poids_g     = safe_float(cap.get("poids_g"))
-        poids_est   = safe_float(cap.get("poids_estime_g"))
-        poids_aff   = poids_g or poids_est
-        poids_txt   = format_weight_display(cap)
-        heure       = safe_str(cap.get("heure_capture")) or "—"
-        photo_path  = safe_str(cap.get("photo_path"))
-        relache     = bool(cap.get("relache"))
-        trophee     = bool(cap.get("poisson_trophee") or cap.get("poisson_trophe"))
-        appat       = safe_str(cap.get("appat")) or ""
-        montage     = safe_str(cap.get("montage")) or ""
-        canne       = safe_str(cap.get("canne")) or ""
-        moulinet    = safe_str(cap.get("moulinet")) or ""
-        bobine      = safe_str(cap.get("bobine_moulinet")) or ""
-        fil         = safe_str(cap.get("fil_corps_de_ligne")) or safe_str(cap.get("fil")) or ""
-        taille_fil  = safe_str(cap.get("taille_corps_de_ligne")) or ""
-        empile      = safe_str(cap.get("fil_empile")) or ""
-        taille_emp  = safe_str(cap.get("taille_empile")) or ""
-        dist        = safe_float(cap.get("distance_lancer_m"))
-        commentaire = safe_str(cap.get("commentaire")) or ""
-        ham_marque  = safe_str(cap.get("marque_hamecon")) or ""
-        ham_type    = safe_str(cap.get("type_hamecon")) or ""
-        ham_modele  = safe_str(cap.get("modele_hamecon")) or ""
-        ham_taille  = safe_str(cap.get("taille_hamecon")) or ""
+    # Tri par heure puis par taille
+    caps_sorted = caps.copy()
+    if "heure_capture" in caps_sorted.columns:
+        caps_sorted = caps_sorted.sort_values("heure_capture")
 
-        # Lieu depuis la session
-        lieu = "—"
-        sid_cap = cap.get("session_id")
-        if sid_cap and not all_sess.empty and "id" in all_sess.columns:
-            sr = all_sess[all_sess["id"] == sid_cap]
-            if not sr.empty:
-                lieu = safe_str(sr.iloc[0].get("lieu")) or "—"
+    # Grille 2 colonnes
+    caps_list = list(caps_sorted.iterrows())
+    for row_start in range(0, len(caps_list), 2):
+        row_caps = caps_list[row_start:row_start+2]
+        cols = st.columns(len(row_caps))
 
-        # Record perso
-        record_esp = None
-        if not all_caps.empty and "espece" in all_caps.columns and "taille_cm" in all_caps.columns:
-            esp_caps = all_caps[all_caps["espece"] == espece]
-            if not esp_caps.empty:
-                tt = pd.to_numeric(esp_caps["taille_cm"], errors="coerce").dropna()
-                if not tt.empty:
-                    record_esp = float(tt.max())
+        for col, (i_idx, (_, cap)) in zip(cols, enumerate(row_caps)):
+            i = row_start + i_idx
+            cap_id      = int(cap["id"])
+            espece      = safe_str(cap.get("espece")) or "—"
+            taille      = safe_float(cap.get("taille_cm"))
+            poids_g     = safe_float(cap.get("poids_g"))
+            poids_est   = safe_float(cap.get("poids_estime_g"))
+            poids_aff   = poids_g or poids_est
+            poids_txt   = format_weight_display(cap)
+            heure       = safe_str(cap.get("heure_capture")) or "—"
+            photo_path  = safe_str(cap.get("photo_path"))
+            relache     = bool(cap.get("relache"))
+            trophee     = bool(cap.get("poisson_trophee") or cap.get("poisson_trophe"))
+            appat       = safe_str(cap.get("appat")) or ""
+            montage     = safe_str(cap.get("montage")) or ""
+            canne       = safe_str(cap.get("canne")) or ""
+            moulinet    = safe_str(cap.get("moulinet")) or ""
+            bobine      = safe_str(cap.get("bobine_moulinet")) or ""
+            fil         = safe_str(cap.get("fil_corps_de_ligne")) or safe_str(cap.get("fil")) or ""
+            taille_fil  = safe_str(cap.get("taille_corps_de_ligne")) or ""
+            empile      = safe_str(cap.get("fil_empile")) or ""
+            taille_emp  = safe_str(cap.get("taille_empile")) or ""
+            dist        = safe_float(cap.get("distance_lancer_m"))
+            commentaire = safe_str(cap.get("commentaire")) or ""
+            ham_marque  = safe_str(cap.get("marque_hamecon")) or ""
+            ham_type    = safe_str(cap.get("type_hamecon")) or ""
+            ham_modele  = safe_str(cap.get("modele_hamecon")) or ""
+            ham_taille  = safe_str(cap.get("taille_hamecon")) or ""
 
-        is_record = taille and record_esp and taille >= record_esp
+            # Lieu depuis la session
+            lieu = "—"
+            sid_cap = cap.get("session_id")
+            if sid_cap and not all_sess.empty and "id" in all_sess.columns:
+                sr = all_sess[all_sess["id"] == sid_cap]
+                if not sr.empty:
+                    lieu = safe_str(sr.iloc[0].get("lieu")) or "—"
 
-        # Photo lightbox
-        lb_id = f"lb_sess_cap_{cap_id}"
-        photo_block = ""
-        if photo_path and str(photo_path).startswith("http"):
-            photo_block = f"""
-<img src="{photo_path}" onclick="document.getElementById('{lb_id}').style.display='flex'"
-  style="width:100%;height:280px;object-fit:cover;border-radius:8px;
-  margin:8px 0;cursor:pointer;background:#f0f4f8;display:block;">
-<div id="{lb_id}" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);
-  z-index:9999;align-items:center;justify-content:center;flex-direction:column;">
-  <img src="{photo_path}" style="max-width:90vw;max-height:85vh;object-fit:contain;border-radius:8px;">
-  <button onclick="document.getElementById('{lb_id}').style.display='none'"
-    style="margin-top:14px;background:rgba(255,255,255,.2);color:#fff;border:none;
-    padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;">Fermer</button>
-</div>"""
+            # Record perso
+            record_esp = None
+            if not all_caps.empty and "espece" in all_caps.columns and "taille_cm" in all_caps.columns:
+                esp_caps = all_caps[all_caps["espece"] == espece]
+                if not esp_caps.empty:
+                    tt = pd.to_numeric(esp_caps["taille_cm"], errors="coerce").dropna()
+                    if not tt.empty:
+                        record_esp = float(tt.max())
 
-        # Badges
-        badges = []
-        if trophee:   badges.append('<span style="background:#FFD54F;color:#5d3a00;font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;">TROPHEE</span>')
-        if is_record: badges.append('<span style="background:#E8F5E9;color:#1B5E20;font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;">RECORD PERSO</span>')
-        badges.append(f'<span style="background:{"#E8F5E9" if not relache else "#FFF3E0"};color:{"#2E7D32" if not relache else "#E65100"};font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;">{"GARDE" if not relache else "RELACHE"}</span>')
-        badges_html = " ".join(badges)
+            is_record = taille and record_esp and taille >= record_esp
 
-        # Section Capture
-        poisson_rows = []
-        if taille:    poisson_rows.append(f'<div class="lp-row"><span class="lp-lbl">Taille</span><span class="lp-val lp-blue">{taille:.0f} cm</span></div>')
-        if poids_aff: poisson_rows.append(f'<div class="lp-row"><span class="lp-lbl">Poids</span><span class="lp-val lp-orange">{poids_txt}</span></div>')
-        if record_esp and taille:
-            diff = taille - record_esp
-            diff_txt = f"+{diff:.0f} cm" if diff > 0 else (f"Record !" if diff == 0 else f"{diff:.0f} cm du record")
-            poisson_rows.append(f'<div class="lp-row"><span class="lp-lbl">Record perso {espece}</span><span class="lp-val" style="color:#2E7D32;">{record_esp:.0f} cm &nbsp;({diff_txt})</span></div>')
-        poisson_rows.append(f'<div class="lp-row"><span class="lp-lbl">Lieu</span><span class="lp-val">{lieu}</span></div>')
-        poisson_rows.append(f'<div class="lp-row"><span class="lp-lbl">Heure</span><span class="lp-val">{heure}</span></div>')
-        if dist:      poisson_rows.append(f'<div class="lp-row"><span class="lp-lbl">Distance lancer</span><span class="lp-val">{dist:.0f} m</span></div>')
+            # Photo — ouvre en nouvel onglet
+            photo_block = ""
+            if photo_path and str(photo_path).startswith("http"):
+                photo_block = f"""
+<a href="{photo_path}" target="_blank" style="display:block;text-decoration:none;">
+  <img src="{photo_path}"
+    style="width:100%;height:200px;object-fit:cover;border-radius:8px;
+    margin:8px 0;cursor:zoom-in;background:#f0f4f8;display:block;">
+</a>"""
 
-        # Section Technique
-        tech_rows = []
-        if appat:     tech_rows.append(f'<div class="lp-row"><span class="lp-lbl">Appat</span><span class="lp-val">{appat}</span></div>')
-        if montage:   tech_rows.append(f'<div class="lp-row"><span class="lp-lbl">Montage</span><span class="lp-val">{montage}</span></div>')
-        if canne:     tech_rows.append(f'<div class="lp-row"><span class="lp-lbl">Canne</span><span class="lp-val">{canne}</span></div>')
-        if moulinet:  tech_rows.append(f'<div class="lp-row"><span class="lp-lbl">Moulinet</span><span class="lp-val">{moulinet}</span></div>')
-        if bobine:    tech_rows.append(f'<div class="lp-row"><span class="lp-lbl">Bobine</span><span class="lp-val">{bobine}</span></div>')
-        if fil:
-            fil_txt = fil + (f" {taille_fil}" if taille_fil else "")
-            tech_rows.append(f'<div class="lp-row"><span class="lp-lbl">Corps de ligne</span><span class="lp-val">{fil_txt}</span></div>')
-        if empile:
-            emp_txt = empile + (f" {taille_emp}" if taille_emp else "")
-            tech_rows.append(f'<div class="lp-row"><span class="lp-lbl">Empile</span><span class="lp-val">{emp_txt}</span></div>')
-        ham = " ".join(filter(None, [ham_marque, ham_type, ham_modele, f"#{ham_taille}" if ham_taille else ""]))
-        if ham:       tech_rows.append(f'<div class="lp-row"><span class="lp-lbl">Hamecon</span><span class="lp-val">{ham}</span></div>')
+            # Badges
+            badges = []
+            if trophee:   badges.append('<span style="background:#FFD54F;color:#5d3a00;font-size:9px;font-weight:800;padding:2px 6px;border-radius:5px;">TROPHEE</span>')
+            if is_record: badges.append('<span style="background:#E8F5E9;color:#1B5E20;font-size:9px;font-weight:800;padding:2px 6px;border-radius:5px;">RECORD</span>')
+            badges.append(f'<span style="background:{"#E8F5E9" if not relache else "#FFF3E0"};color:{"#2E7D32" if not relache else "#E65100"};font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px;">{"GARDE" if not relache else "RELACHE"}</span>')
+            badges_html = " ".join(badges)
 
-        poisson_html = "".join(poisson_rows)
-        tech_html    = "".join(tech_rows)
-        tech_section = f'<div class="lp-section-title">Technique</div>{tech_html}' if tech_html else ""
-        comment_section = f'<div style="background:#f8f9fa;border-left:3px solid #1565C0;padding:8px 12px;border-radius:4px;font-size:12px;color:#546E7A;font-style:italic;margin-top:8px;">{commentaire}</div>' if commentaire else ""
+            # Résumé taille/poids
+            summary_pieces = []
+            if taille:    summary_pieces.append(f'<span style="background:#E3F2FD;color:#1565C0;font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;">📏 {taille:.0f} cm</span>')
+            if poids_aff: summary_pieces.append(f'<span style="background:#FFF3E0;color:#E65100;font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;">{poids_txt}</span>')
+            summary_html = " ".join(summary_pieces)
 
-        # Hauteur dynamique
-        h_base   = 80
-        h_rows   = (len(poisson_rows) + len(tech_rows)) * 28
-        h_titles = 30 + (30 if tech_html else 0)
-        h_photo  = 290 if photo_block else 0
-        h_com    = 50  if commentaire else 0
-        h_total  = h_base + h_rows + h_titles + h_photo + h_com + 30
+            # Section Capture
+            poisson_rows = []
+            if record_esp and taille:
+                diff = taille - record_esp
+                diff_txt = f"+{diff:.0f} cm" if diff > 0 else (f"Record !" if diff == 0 else f"{diff:.0f} cm du record")
+                poisson_rows.append(f'<div class="lp-row"><span class="lp-lbl">Record perso {espece}</span><span class="lp-val" style="color:#2E7D32;">{record_esp:.0f} cm &nbsp;({diff_txt})</span></div>')
+            poisson_rows.append(f'<div class="lp-row"><span class="lp-lbl">Lieu</span><span class="lp-val">{lieu}</span></div>')
+            poisson_rows.append(f'<div class="lp-row"><span class="lp-lbl">Heure</span><span class="lp-val">{heure}</span></div>')
+            if dist:      poisson_rows.append(f'<div class="lp-row"><span class="lp-lbl">Distance lancer</span><span class="lp-val">{dist:.0f} m</span></div>')
 
-        with st.container(border=True):
-            _comp.html(f"""
+            # Section Technique
+            tech_rows = []
+            if appat:     tech_rows.append(f'<div class="lp-row"><span class="lp-lbl">Appat</span><span class="lp-val">{appat}</span></div>')
+            if montage:   tech_rows.append(f'<div class="lp-row"><span class="lp-lbl">Montage</span><span class="lp-val">{montage}</span></div>')
+            if canne:     tech_rows.append(f'<div class="lp-row"><span class="lp-lbl">Canne</span><span class="lp-val">{canne}</span></div>')
+            if moulinet:  tech_rows.append(f'<div class="lp-row"><span class="lp-lbl">Moulinet</span><span class="lp-val">{moulinet}</span></div>')
+            if bobine:    tech_rows.append(f'<div class="lp-row"><span class="lp-lbl">Bobine</span><span class="lp-val">{bobine}</span></div>')
+            if fil:
+                fil_txt = fil + (f" {taille_fil}" if taille_fil else "")
+                tech_rows.append(f'<div class="lp-row"><span class="lp-lbl">Corps de ligne</span><span class="lp-val">{fil_txt}</span></div>')
+            if empile:
+                emp_txt = empile + (f" {taille_emp}" if taille_emp else "")
+                tech_rows.append(f'<div class="lp-row"><span class="lp-lbl">Empile</span><span class="lp-val">{emp_txt}</span></div>')
+            ham = " ".join(filter(None, [ham_marque, ham_type, ham_modele, f"#{ham_taille}" if ham_taille else ""]))
+            if ham:       tech_rows.append(f'<div class="lp-row"><span class="lp-lbl">Hamecon</span><span class="lp-val">{ham}</span></div>')
+
+            poisson_html = "".join(poisson_rows)
+            tech_html    = "".join(tech_rows)
+            tech_section = f'<div class="lp-section-title">Technique</div>{tech_html}' if tech_html else ""
+            comment_section = f'<div style="background:#f8f9fa;border-left:3px solid #1565C0;padding:6px 10px;border-radius:4px;font-size:11px;color:#546E7A;font-style:italic;margin-top:6px;">{commentaire}</div>' if commentaire else ""
+
+            with col:
+                with st.container(border=True):
+                    # Carte compacte avec expander
+                    icon_t = "🏆" if trophee else "🐟"
+                    title = f"{icon_t} **{espece}**"
+                    if taille:    title += f" · {taille:.0f} cm"
+                    if heure != "—": title += f" · 🕐 {heure}"
+
+                    with st.expander(title, expanded=False):
+                        # Hauteur dynamique réduite (cartes compactes)
+                        h_rows   = (len(poisson_rows) + len(tech_rows)) * 26
+                        h_titles = 30 + (30 if tech_html else 0)
+                        h_photo  = 210 if photo_block else 0
+                        h_com    = 50  if commentaire else 0
+                        h_total  = 70 + h_rows + h_titles + h_photo + h_com + 30
+
+                        _comp.html(f"""
 <style>
 .lp-card {{ font-family:system-ui,sans-serif;color:#1a2332; }}
 .lp-header {{ background:linear-gradient(135deg,#0c2340,#1565C0);color:#fff;
-  padding:10px 14px;border-radius:10px;margin-bottom:10px; }}
-.lp-species {{ font-size:17px;font-weight:900;letter-spacing:.3px; }}
-.lp-badges {{ margin-top:5px;display:flex;gap:6px;flex-wrap:wrap; }}
+  padding:8px 12px;border-radius:8px;margin-bottom:8px; }}
+.lp-species {{ font-size:15px;font-weight:900;letter-spacing:.3px; }}
+.lp-badges {{ margin-top:4px;display:flex;gap:5px;flex-wrap:wrap; }}
+.lp-summary {{ margin:6px 0; }}
 .lp-section-title {{ font-size:9px;font-weight:800;letter-spacing:1.5px;
-  text-transform:uppercase;color:#90A4AE;margin:10px 0 4px; }}
+  text-transform:uppercase;color:#90A4AE;margin:8px 0 4px; }}
 .lp-row {{ display:flex;justify-content:space-between;align-items:center;
-  padding:4px 0;border-bottom:1px solid #f0f4f8; }}
+  padding:3px 0;border-bottom:1px solid #f0f4f8; }}
 .lp-lbl {{ font-size:11px;color:#78909C;font-weight:500; }}
-.lp-val {{ font-size:12px;font-weight:700;color:#1a2332; }}
-.lp-blue {{ background:#E3F2FD;color:#1565C0;padding:1px 7px;border-radius:6px; }}
-.lp-orange {{ background:#FFF3E0;color:#E65100;padding:1px 7px;border-radius:6px; }}
+.lp-val {{ font-size:11px;font-weight:700;color:#1a2332; }}
 </style>
 <div class="lp-card">
   <div class="lp-header">
     <div class="lp-species">🐟 {espece}</div>
     <div class="lp-badges">{badges_html}</div>
   </div>
+  <div class="lp-summary">{summary_html}</div>
   {photo_block}
   <div class="lp-section-title">Capture</div>
   {poisson_html}
@@ -1003,30 +1020,30 @@ def _render_session_captures(sid: int, terminee: bool) -> None:
 </div>
 """, height=h_total, scrolling=False)
 
-            # Boutons actions
-            ca, cb, cc = st.columns(3)
-            edit_cap_key = f"cap_edit_open_{cap_id}"
-            if ca.button("✏️ Modifier", key=f"cap_edit_btn_{cap_id}",
-                          use_container_width=True):
-                st.session_state[edit_cap_key] = not st.session_state.get(edit_cap_key, False)
-                st.rerun()
-            if cb.button("📋 Copier", key=f"cap_copy_{cap_id}",
-                          use_container_width=True):
-                _duplicate_capture(cap, sid)
-                st.rerun()
-            if cc.button("🗑️ Suppr.", key=f"cap_del_{cap_id}",
-                          use_container_width=True):
-                st.session_state[f"confirm_cap_{cap_id}"] = True
+                        # Boutons actions
+                        ca, cb, cc = st.columns(3)
+                        edit_cap_key = f"cap_edit_open_{cap_id}"
+                        if ca.button("✏️ Modifier", key=f"cap_edit_btn_{cap_id}",
+                                      use_container_width=True):
+                            st.session_state[edit_cap_key] = not st.session_state.get(edit_cap_key, False)
+                            st.rerun()
+                        if cb.button("📋 Copier", key=f"cap_copy_{cap_id}",
+                                      use_container_width=True):
+                            _duplicate_capture(cap, sid)
+                            st.rerun()
+                        if cc.button("🗑️ Suppr.", key=f"cap_del_{cap_id}",
+                                      use_container_width=True):
+                            st.session_state[f"confirm_cap_{cap_id}"] = True
 
-            if st.session_state.get(f"confirm_cap_{cap_id}"):
-                if confirm_destructive(f"cap_{cap_id}", f"Supprimer cette capture ({espece}) ?"):
-                    delete_capture(cap_id)
-                    st.session_state[f"confirm_cap_{cap_id}"] = False
-                    st.cache_data.clear()
-                    st.rerun()
+                        if st.session_state.get(f"confirm_cap_{cap_id}"):
+                            if confirm_destructive(f"cap_{cap_id}", f"Supprimer cette capture ({espece}) ?"):
+                                delete_capture(cap_id)
+                                st.session_state[f"confirm_cap_{cap_id}"] = False
+                                st.cache_data.clear()
+                                st.rerun()
 
-            if st.session_state.get(edit_cap_key):
-                _render_edit_capture_inline(cap, cap_id)
+                        if st.session_state.get(edit_cap_key):
+                            _render_edit_capture_inline(cap, cap_id)
 
 
 def _duplicate_capture(cap, sid: int) -> None:
