@@ -145,6 +145,12 @@ def _render_new_capture(sessions: pd.DataFrame) -> None:
                                     type=["jpg","jpeg","png","webp"],
                                     key="nc_upl")
         new_photo = upl if upl is not None else cam
+        # Stocker en bytes immédiatement pour survivre au rerun du form
+        if new_photo is not None:
+            st.session_state["nc_photo_bytes"] = new_photo.getvalue()
+            st.session_state["nc_photo_name"]  = getattr(new_photo, "name", "capture.jpg")
+        if st.session_state.get("nc_photo_bytes"):
+            st.image(st.session_state["nc_photo_bytes"], width=120, caption="Aperçu")
 
     # ── Matériel HORS form pour que les bobines s'actualisent en live ──
     with st.expander("🎒 Matériel utilisé (canne / moulinet / bobine)"):
@@ -281,10 +287,17 @@ def _render_new_capture(sessions: pd.DataFrame) -> None:
             "created_at": datetime.now().isoformat(timespec="seconds"),
         }
         cap_id = insert_row("captures", data)
-        if new_photo:
-            pp = save_capture_photo(new_photo, cap_id)
+        # Utiliser les bytes stockés pour l'upload photo
+        photo_bytes = st.session_state.get("nc_photo_bytes")
+        if photo_bytes:
+            import io
+            f = io.BytesIO(photo_bytes)
+            f.name = st.session_state.get("nc_photo_name", "capture.jpg")
+            pp = save_capture_photo(f, cap_id)
             if pp:
                 update_row("captures", cap_id, {"photo_path": pp})
+            st.session_state.pop("nc_photo_bytes", None)
+            st.session_state.pop("nc_photo_name", None)
         st.cache_data.clear()
         st.success(f"✅ Capture {cap_num} enregistrée !")
         st.rerun()
@@ -314,109 +327,164 @@ def _render_captures_by_session(sessions: pd.DataFrame) -> None:
         st.info("Aucune capture pour cette session.")
         return
 
-    for i, (_, row) in enumerate(caps.iterrows()):
-        cap_id     = int(row["id"])
-        espece     = safe_str(row.get("espece")) or "—"
-        taille     = safe_float(row.get("taille_cm"))
-        poids_txt  = format_weight_display(row)
-        heure      = safe_str(row.get("heure_capture")) or "—"
-        photo_path = safe_str(row.get("photo_path"))
-        relache    = bool(row.get("relache"))
-        trophee    = bool(row.get("poisson_trophee") or row.get("poisson_trophe"))
-        appat      = safe_str(row.get("appat")) or "—"
+    # Charger toutes les captures pour calculer les records par espèce
+    from core.database import load_captures, load_sessions
+    all_caps = load_captures()
+    all_sess = load_sessions()
 
-        bg = "#ffffff" if i % 2 == 0 else "#f0f4f8"
-        badges = ("↩️ " if relache else "📦 ") + ("🏅 " if trophee else "")
+    for i, (_, row) in enumerate(caps.iterrows()):
+        cap_id      = int(row["id"])
+        espece      = safe_str(row.get("espece")) or "—"
+        taille      = safe_float(row.get("taille_cm"))
+        poids_g     = safe_float(row.get("poids_g"))
+        poids_est   = safe_float(row.get("poids_estime_g"))
+        poids_aff   = poids_g or poids_est
+        poids_txt   = format_weight_display(row)
+        heure       = safe_str(row.get("heure_capture")) or "—"
+        photo_path  = safe_str(row.get("photo_path"))
+        relache     = bool(row.get("relache"))
+        trophee     = bool(row.get("poisson_trophee") or row.get("poisson_trophe"))
+        appat       = safe_str(row.get("appat")) or ""
+        montage     = safe_str(row.get("montage")) or ""
+        canne       = safe_str(row.get("canne")) or ""
+        moulinet    = safe_str(row.get("moulinet")) or ""
+        bobine      = safe_str(row.get("bobine_moulinet")) or ""
+        fil         = safe_str(row.get("fil_corps_de_ligne")) or safe_str(row.get("fil")) or ""
+        taille_fil  = safe_str(row.get("taille_corps_de_ligne")) or ""
+        empile      = safe_str(row.get("fil_empile")) or ""
+        taille_emp  = safe_str(row.get("taille_empile")) or ""
+        dist        = safe_float(row.get("distance_lancer_m"))
+        commentaire = safe_str(row.get("commentaire")) or ""
+        ham_marque  = safe_str(row.get("marque_hamecon")) or ""
+        ham_type    = safe_str(row.get("type_hamecon")) or ""
+        ham_modele  = safe_str(row.get("modele_hamecon")) or ""
+        ham_taille  = safe_str(row.get("taille_hamecon")) or ""
+
+        # Localité depuis la session liée
+        lieu = "—"
+        sid  = row.get("session_id")
+        if sid and not all_sess.empty and "id" in all_sess.columns:
+            sr = all_sess[all_sess["id"] == sid]
+            if not sr.empty:
+                lieu = safe_str(sr.iloc[0].get("lieu")) or "—"
+
+        # Record personnel pour cette espèce
+        record_esp = None
+        if not all_caps.empty and "espece" in all_caps.columns and "taille_cm" in all_caps.columns:
+            esp_caps = all_caps[all_caps["espece"] == espece]
+            if not esp_caps.empty:
+                tt = pd.to_numeric(esp_caps["taille_cm"], errors="coerce").dropna()
+                if not tt.empty:
+                    record_esp = float(tt.max())
+
+        is_record = taille and record_esp and taille >= record_esp
+
+        from data.fish_data import get_fish_visual
+        svg_html = get_fish_visual(espece, size=80)
+
+        # Photo lightbox
+        lb_id = f"lb_cap_{cap_id}"
+        photo_block = ""
+        if photo_path and str(photo_path).startswith("http"):
+            photo_block = f"""
+<img src="{photo_path}" onclick="document.getElementById('{lb_id}').style.display='flex'"
+  style="width:100%;max-height:260px;object-fit:contain;border-radius:8px;
+  margin:8px 0;cursor:pointer;background:#f0f4f8;display:block;">
+<div id="{lb_id}" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);
+  z-index:9999;align-items:center;justify-content:center;flex-direction:column;">
+  <img src="{photo_path}" style="max-width:90vw;max-height:85vh;object-fit:contain;border-radius:8px;">
+  <button onclick="document.getElementById('{lb_id}').style.display='none'"
+    style="margin-top:14px;background:rgba(255,255,255,.2);color:#fff;border:none;
+    padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;">Fermer</button>
+</div>"""
+
+        # Badges
+        badges = []
+        if trophee:   badges.append('<span style="background:#FFD54F;color:#5d3a00;font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;">TROPHEE</span>')
+        if is_record: badges.append('<span style="background:#E8F5E9;color:#1B5E20;font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;">RECORD PERSO</span>')
+        badges.append(f'<span style="background:{"#E8F5E9" if not relache else "#FFF3E0"};color:{"#2E7D32" if not relache else "#E65100"};font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;">{"GARDE" if not relache else "RELACHE"}</span>')
+        badges_html = " ".join(badges)
+
+        # Section Poisson
+        poisson_rows = []
+        if taille:    poisson_rows.append(f'<div class="lp-row"><span class="lp-lbl">Taille</span><span class="lp-val lp-blue">{taille:.0f} cm</span></div>')
+        if poids_aff: poisson_rows.append(f'<div class="lp-row"><span class="lp-lbl">Poids</span><span class="lp-val lp-orange">{poids_txt}</span></div>')
+        if record_esp and taille:
+            diff = taille - record_esp
+            diff_txt = f"+{diff:.0f} cm" if diff > 0 else (f"Record !" if diff == 0 else f"{diff:.0f} cm du record")
+            poisson_rows.append(f'<div class="lp-row"><span class="lp-lbl">Record perso {espece}</span><span class="lp-val" style="color:#2E7D32;">{record_esp:.0f} cm &nbsp;({diff_txt})</span></div>')
+        poisson_rows.append(f'<div class="lp-row"><span class="lp-lbl">Lieu</span><span class="lp-val">{lieu}</span></div>')
+        poisson_rows.append(f'<div class="lp-row"><span class="lp-lbl">Heure</span><span class="lp-val">{heure}</span></div>')
+        if dist:      poisson_rows.append(f'<div class="lp-row"><span class="lp-lbl">Distance lancer</span><span class="lp-val">{dist:.0f} m</span></div>')
+
+        # Section Technique
+        tech_rows = []
+        if appat:     tech_rows.append(f'<div class="lp-row"><span class="lp-lbl">Appat</span><span class="lp-val">{appat}</span></div>')
+        if montage:   tech_rows.append(f'<div class="lp-row"><span class="lp-lbl">Montage</span><span class="lp-val">{montage}</span></div>')
+        if canne:     tech_rows.append(f'<div class="lp-row"><span class="lp-lbl">Canne</span><span class="lp-val">{canne}</span></div>')
+        if moulinet:  tech_rows.append(f'<div class="lp-row"><span class="lp-lbl">Moulinet</span><span class="lp-val">{moulinet}</span></div>')
+        if bobine:    tech_rows.append(f'<div class="lp-row"><span class="lp-lbl">Bobine</span><span class="lp-val">{bobine}</span></div>')
+        if fil:
+            fil_txt = fil + (f" {taille_fil}" if taille_fil else "")
+            tech_rows.append(f'<div class="lp-row"><span class="lp-lbl">Corps de ligne</span><span class="lp-val">{fil_txt}</span></div>')
+        if empile:
+            emp_txt = empile + (f" {taille_emp}" if taille_emp else "")
+            tech_rows.append(f'<div class="lp-row"><span class="lp-lbl">Empile</span><span class="lp-val">{emp_txt}</span></div>')
+        ham = " ".join(filter(None, [ham_marque, ham_type, ham_modele, f"#{ham_taille}" if ham_taille else ""]))
+        if ham:       tech_rows.append(f'<div class="lp-row"><span class="lp-lbl">Hamecon</span><span class="lp-val">{ham}</span></div>')
+
+        poisson_html = "".join(poisson_rows)
+        tech_html    = "".join(tech_rows)
+        tech_section = f'<div class="lp-section-title">Technique</div>{tech_html}' if tech_html else ""
+        comment_section = f'<div style="background:#f8f9fa;border-left:3px solid #1565C0;padding:8px 12px;border-radius:4px;font-size:12px;color:#546E7A;font-style:italic;margin-top:8px;">{commentaire}</div>' if commentaire else ""
+
+        # Hauteur dynamique : base + lignes + photo
+        h_base   = 80   # header seulement (sans SVG)
+        h_rows   = (len(poisson_rows) + len(tech_rows)) * 28
+        h_titles = 30 + (30 if tech_html else 0)
+        h_photo  = 270 if photo_block else 0
+        h_com    = 50  if commentaire else 0
+        h_total  = h_base + h_rows + h_titles + h_photo + h_com + 30
 
         with st.container(border=True):
-            st.markdown(
-                f'<div style="background:{bg};border-radius:6px;margin:-8px -12px 8px;'
-                f'padding:6px 12px;font-size:11px;color:#666;">'
-                f'#{i+1} · {heure} · {badges}</div>',
-                unsafe_allow_html=True,
-            )
-            c_visual, c_main, c_actions = st.columns([1.5, 3.5, 1])
+            _comp.html(f"""
+<style>
+.lp-card {{ font-family:system-ui,sans-serif;color:#1a2332; }}
+.lp-header {{ background:linear-gradient(135deg,#0c2340,#1565C0);color:#fff;
+  padding:10px 14px;border-radius:10px;margin-bottom:10px; }}
+.lp-species {{ font-size:17px;font-weight:900;letter-spacing:.3px; }}
+.lp-badges {{ margin-top:5px;display:flex;gap:6px;flex-wrap:wrap; }}
+.lp-svg {{ background:#f0f6ff;border-radius:8px;padding:10px;
+  display:flex;align-items:center;justify-content:center;margin-bottom:8px; }}
+.lp-section-title {{ font-size:9px;font-weight:800;letter-spacing:1.5px;
+  text-transform:uppercase;color:#90A4AE;margin:10px 0 4px; }}
+.lp-row {{ display:flex;justify-content:space-between;align-items:center;
+  padding:4px 0;border-bottom:1px solid #f0f4f8; }}
+.lp-lbl {{ font-size:11px;color:#78909C;font-weight:500; }}
+.lp-val {{ font-size:12px;font-weight:700;color:#1a2332; }}
+.lp-blue {{ background:#E3F2FD;color:#1565C0;padding:1px 7px;border-radius:6px; }}
+.lp-orange {{ background:#FFF3E0;color:#E65100;padding:1px 7px;border-radius:6px; }}
+</style>
+<div class="lp-card">
+  <div class="lp-header">
+    <div class="lp-species">🐟 {espece}</div>
+    <div class="lp-badges">{badges_html}</div>
+  </div>
+  {photo_block}
+  <div class="lp-section-title">Capture</div>
+  {poisson_html}
+  {tech_section}
+  {comment_section}
+</div>
+""", height=h_total, scrolling=False)
 
-            with c_visual:
-                # Toujours afficher le SVG du poisson
-                from data.fish_data import get_fish_visual
-                visual_html = get_fish_visual(espece, size=100)
-                _comp.html(
-                    f'<div style="display:flex;align-items:center;justify-content:center;">'
-                    f'{visual_html}</div>',
-                    height=80, scrolling=False,
-                )
-                # Photo en dessous si disponible
-                if photo_path and (str(photo_path).startswith("http") or Path(photo_path).exists()):
-                    if str(photo_path).startswith("http"):
-                        _comp.html(
-                            f'<img src="{photo_path}" style="width:100%;max-height:140px;'
-                            f'object-fit:cover;border-radius:8px;margin-top:4px;">',
-                            height=150, scrolling=False,
-                        )
-                    else:
-                        st.image(photo_path, use_container_width=True)
-
-            with c_main:
-                # Nom + badges taille/poids
-                st.markdown(
-                    f'<div style="font-size:15px;font-weight:800;color:#0c2340;margin-bottom:4px;">'
-                    f'{espece}</div>'
-                    f'<div style="margin-bottom:6px;">'
-                    f'<span style="background:#E3F2FD;color:#1565C0;font-size:12px;font-weight:700;'
-                    f'padding:3px 10px;border-radius:10px;margin-right:4px;">📏 {taille:.0f} cm</span>'
-                    f'<span style="background:#FFF3E0;color:#E65100;font-size:12px;font-weight:700;'
-                    f'padding:3px 10px;border-radius:10px;">{poids_txt}</span>'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
-                # Appât
-                appat_svg = next((APPAT_SVG_MAP[k] for k in APPAT_SVG_MAP if k.lower() in appat.lower()), "")
-                if appat_svg:
-                    _comp.html(
-                        f'<div style="display:inline-flex;align-items:center;gap:6px;'
-                        f'font-size:12px;color:#444;margin-bottom:4px;">'
-                        f'{icon_box(appat_svg, 28)} <b>{appat}</b></div>',
-                        height=36, scrolling=False,
-                    )
-                elif appat:
-                    st.caption(f"🪱 {appat}")
-
-                # Montage
-                montage = safe_str(row.get("montage"))
-                if montage: st.caption(f"🧵 {montage}")
-
-                # Matériel
-                mat = []
-                if safe_str(row.get("canne")):           mat.append(f"🎯 {row['canne']}")
-                if safe_str(row.get("moulinet")):        mat.append(f"⚙️ {row['moulinet']}")
-                if safe_str(row.get("bobine_moulinet")): mat.append(f"🧵 {row['bobine_moulinet']}")
-                if mat: st.caption(" · ".join(mat))
-
-                # Hameçon
-                ham = " ".join(filter(None, [
-                    safe_str(row.get("marque_hamecon")),
-                    safe_str(row.get("modele_hamecon")),
-                    f"#{row['taille_hamecon']}" if safe_str(row.get("taille_hamecon")) else "",
-                ]))
-                if ham: st.caption(f"🪝 {ham}")
-
-                # Distance
-                dist = row.get("distance_lancer_m")
-                if dist: st.caption(f"📐 {float(dist):.0f} m")
-
-                # Commentaire
-                if safe_str(row.get("commentaire")):
-                    st.caption(f"💬 {safe_str(row.get('commentaire'))}")
-
-            with c_actions:
-                edit_key = f"cap_edit_open_{cap_id}"
-                lbl_e = "✕" if st.session_state.get(edit_key) else "✏️ Modifier"
-                if st.button(lbl_e, key=f"cap_edit_btn_{cap_id}", use_container_width=True):
-                    st.session_state[edit_key] = not st.session_state.get(edit_key, False)
-                    st.rerun()
-                if st.button("🗑️ Supprimer", key=f"cap_del_{cap_id}", use_container_width=True):
-                    st.session_state[f"confirm_cap_{cap_id}"] = True
+            c1, c2 = st.columns(2)
+            edit_key = f"cap_edit_open_{cap_id}"
+            if c1.button("Modifier", key=f"cap_edit_btn_{cap_id}", use_container_width=True):
+                st.session_state[edit_key] = not st.session_state.get(edit_key, False)
+                st.rerun()
+            if c2.button("Supprimer", key=f"cap_del_{cap_id}", use_container_width=True):
+                st.session_state[f"confirm_cap_{cap_id}"] = True
 
             if st.session_state.get(f"confirm_cap_{cap_id}"):
                 if confirm_destructive(f"cap_{cap_id}", f"Supprimer {espece} ?"):
@@ -425,7 +493,6 @@ def _render_captures_by_session(sessions: pd.DataFrame) -> None:
                     st.cache_data.clear()
                     st.rerun()
 
-            # Modification inline — photo HORS form
             if st.session_state.get(edit_key):
                 _render_edit_capture(row, cap_id)
 
@@ -649,7 +716,7 @@ def _render_captures_by_fish(sessions: pd.DataFrame) -> None:
             with st.container(border=True):
                 col_img, col_main, col_size = st.columns([1, 3, 1])
                 with col_img:
-                    if photo_path and (str(photo_path).startswith("http") or Path(photo_path).exists()):
+                    if photo_path and str(photo_path).startswith("http"):
                         if str(photo_path).startswith("http"):
                             _comp.html(
                                 f'<img src="{photo_path}" style="width:100%;aspect-ratio:1;'
@@ -657,7 +724,12 @@ def _render_captures_by_fish(sessions: pd.DataFrame) -> None:
                                 height=110, scrolling=False,
                             )
                         else:
-                            st.image(photo_path, use_container_width=True)
+                            import streamlit.components.v1 as _cv2
+                            _cv2.html(
+                                f'<img src="{photo_path}" style="width:100%;max-height:200px;'
+                                f'object-fit:contain;border-radius:8px;">',
+                                height=208, scrolling=False,
+                            )
                     else:
                         from data.fish_data import get_fish_visual
                         visual_html = get_fish_visual(espece, size=100)
