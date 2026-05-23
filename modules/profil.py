@@ -139,7 +139,9 @@ def render() -> None:
     photo   = safe_str(profil.get("photo_path")) or ""
 
     # ── Onglets directement sans répéter le bandeau ───────────────────
-    tab_info, tab_photo, tab_social = st.tabs(["👤 Mes infos", "📸 Ma photo", "🌐 Réseaux"])
+    tab_info, tab_photo, tab_social, tab_secu = st.tabs([
+        "👤 Mes infos", "📸 Ma photo", "🌐 Réseaux", "🔒 Sécurité"
+    ])
 
     with tab_info:
         _render_info_form(profil, photo)
@@ -149,6 +151,78 @@ def render() -> None:
 
     with tab_social:
         _render_social_form(profil, photo)
+
+    with tab_secu:
+        _render_security_form()
+
+
+# ── Onglet Sécurité ───────────────────────────────────────────────────────────
+
+def _render_security_form() -> None:
+    """Changement de mot de passe."""
+    import hashlib
+    from core.supabase_client import supabase_get, supabase_patch
+
+    user = st.session_state.get("reseau_user")
+    if not user:
+        st.warning("Connecte-toi pour modifier ton mot de passe.")
+        return
+
+    st.markdown(
+        '<div style="background:#f5f7fa;border-left:3px solid #1565C0;'
+        'padding:10px 14px;border-radius:6px;margin-bottom:14px;">'
+        '<div style="font-size:13px;color:#0c2340;font-weight:700;">🔒 Changer mon mot de passe</div>'
+        '<div style="font-size:11px;color:#546E7A;margin-top:3px;">'
+        'Pour ta sécurité, on te demande ton mot de passe actuel.</div></div>',
+        unsafe_allow_html=True,
+    )
+
+    with st.form("change_pwd_form"):
+        old_pwd = st.text_input("Mot de passe actuel", type="password",
+                                 key="pwd_old")
+        new_pwd = st.text_input("Nouveau mot de passe", type="password",
+                                 key="pwd_new",
+                                 help="6 caractères minimum")
+        new_pwd2 = st.text_input("Confirmer le nouveau mot de passe",
+                                  type="password", key="pwd_new2")
+
+        submit = st.form_submit_button("🔐 Changer mon mot de passe",
+                                         use_container_width=True, type="primary")
+
+    if submit:
+        if not all([old_pwd, new_pwd, new_pwd2]):
+            st.error("Remplis tous les champs.")
+            return
+        if new_pwd != new_pwd2:
+            st.error("Les nouveaux mots de passe ne correspondent pas.")
+            return
+        if len(new_pwd) < 6:
+            st.error("Le mot de passe doit faire au moins 6 caractères.")
+            return
+        if new_pwd == old_pwd:
+            st.warning("Le nouveau mot de passe est identique à l'ancien.")
+            return
+
+        # Vérifier l'ancien mot de passe
+        h_old = hashlib.sha256(old_pwd.encode()).hexdigest()
+        check = supabase_get("profils", {
+            "id":           f"eq.{user['id']}",
+            "mot_de_passe": f"eq.{h_old}",
+            "select":       "id",
+        })
+        if not check:
+            st.error("❌ Mot de passe actuel incorrect.")
+            return
+
+        # Mettre à jour
+        h_new = hashlib.sha256(new_pwd.encode()).hexdigest()
+        ok = supabase_patch("profils", user["id"], {"mot_de_passe": h_new})
+        if ok:
+            st.success("✅ Mot de passe modifié avec succès !")
+            from ui.components import fish_animation
+            fish_animation()
+        else:
+            st.error("Erreur lors de la mise à jour. Réessaie.")
 
 
 # ── Onglet Infos ──────────────────────────────────────────────────────────────
