@@ -289,7 +289,7 @@ def _render_gallery() -> None:
     cols = st.columns(3)
     for idx, photo in enumerate(all_photos):
         pp = photo["photo_path"]
-        if not pp or not Path(pp).exists():
+        if not pp or not str(pp).startswith("http"):
             continue
 
         # Toutes les photos de ce lot (principale + extras)
@@ -297,7 +297,7 @@ def _render_gallery() -> None:
         if photo["photos_json"]:
             try:
                 extras = json.loads(photo["photos_json"])
-                lot_paths += [p for p in extras if Path(p).exists()]
+                lot_paths += [p for p in extras if str(p).startswith("http")]
             except Exception:
                 pass
 
@@ -305,9 +305,13 @@ def _render_gallery() -> None:
             with st.container(border=True):
                 # ── Image(s) ────────────────────────────────────────
                 if len(lot_paths) == 1:
-                    st.image(pp, use_container_width=True)
+                    components.html(
+                        f'<img src="{pp}" style="width:100%;max-height:240px;'
+                        f'object-fit:cover;border-radius:8px;cursor:pointer;" '
+                        f'onclick="window.open(\'{pp}\',\'_blank\')">',
+                        height=250, scrolling=False,
+                    )
                 else:
-                    # Mini carrousel dans la carte
                     _mini_carousel(lot_paths, f"gal_{idx}")
 
                 # ── Infos ────────────────────────────────────────────

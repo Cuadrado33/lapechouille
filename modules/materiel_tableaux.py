@@ -337,26 +337,20 @@ def _render_records() -> None:
                         f'display:flex;align-items:center;justify-content:center;">'
                         f'{emoji}</div>')
 
-        # Photo personnelle (vignette)
+        # Photo personnelle (vignette) — URL Supabase directe
         photo_html = ""
-        if photo:
-            try:
-                ext = Path(photo).suffix.lower().lstrip(".")
-                mime = "image/jpeg" if ext in ("jpg", "jpeg") else f"image/{ext}"
-                b64  = base64.b64encode(Path(photo).read_bytes()).decode()
-                tag  = "🏆" if has_trophy else "📸"
-                photo_html = (
-                    f'<div style="position:relative;width:100%;height:100%;">'
-                    f'<img src="data:{mime};base64,{b64}" '
-                    f'style="width:100%;height:100%;object-fit:cover;'
-                    f'border-radius:8px;border:2px solid #FFB300;">'
-                    f'<div style="position:absolute;top:4px;right:4px;background:#FFB300;'
-                    f'color:#fff;font-size:11px;font-weight:700;padding:2px 6px;'
-                    f'border-radius:6px;">{tag}</div>'
-                    f'</div>'
-                )
-            except Exception:
-                photo_html = ""
+        if photo and str(photo).startswith("http"):
+            tag = "🏆" if has_trophy else "📸"
+            photo_html = (
+                f'<div style="position:relative;width:100%;height:100%;">'
+                f'<img src="{photo}" '
+                f'style="width:100%;height:100%;object-fit:cover;'
+                f'border-radius:8px;border:2px solid #FFB300;">'
+                f'<div style="position:absolute;top:4px;right:4px;background:#FFB300;'
+                f'color:#fff;font-size:11px;font-weight:700;padding:2px 6px;'
+                f'border-radius:6px;">{tag}</div>'
+                f'</div>'
+            )
 
         # Format poids
         def _fmt_poids(p, suffix=""):

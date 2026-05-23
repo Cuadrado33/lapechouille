@@ -887,15 +887,7 @@ def _render_session_captures(sid: int, terminee: bool) -> None:
             c_left, c_right = st.columns([1, 2])
 
             with c_left:
-                # SVG toujours visible
-                from data.fish_data import get_fish_visual
-                _comp.html(
-                    f'<div style="display:flex;align-items:center;justify-content:center;'
-                    f'background:#f5f9ff;border-radius:6px;padding:4px;">'
-                    f'{get_fish_visual(espece, size=90)}</div>',
-                    height=80, scrolling=False,
-                )
-                # Photo cliquable avec lightbox
+                # Photo cliquable avec lightbox (s'agrandit au clic)
                 if photo_path and str(photo_path).startswith("http"):
                     lb_id = f"lb_cap_{cap_id}"
                     _comp.html(f"""
