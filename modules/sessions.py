@@ -512,37 +512,35 @@ def _render_sessions_list(terminee: bool, type_filter: str | None = None) -> Non
                 unsafe_allow_html=True,
             )
 
-            # Photos cliquables — toutes les photos des captures
-            photos_sess = []
+            # Grille mosaïque comme dans Photos/Par session
+            sess_thumbs = []
             if not sess_caps.empty and "photo_path" in sess_caps.columns:
                 for _, cr in sess_caps.iterrows():
                     p = safe_str(cr.get("photo_path"))
                     if p and str(p).startswith("http"):
-                        esp = safe_str(cr.get("espece")) or "—"
-                        tt  = safe_float(cr.get("taille_cm"))
-                        photos_sess.append((p, esp, tt))
+                        esp = (safe_str(cr.get("espece")) or "—")[:12]
+                        sess_thumbs.append(
+                            f'<a href="{p}" target="_blank" style="text-decoration:none;display:block;">'
+                            f'<div style="position:relative;width:100%;aspect-ratio:1;'
+                            f'border-radius:8px;overflow:hidden;border:2px solid {type_color};cursor:zoom-in;">'
+                            f'<img src="{p}" style="width:100%;height:100%;object-fit:cover;display:block;"/>'
+                            f'<div style="position:absolute;bottom:2px;left:2px;'
+                            f'background:{type_color};color:#fff;font-size:9px;font-weight:700;'
+                            f'padding:1px 5px;border-radius:4px;line-height:1.3;">🐟 {esp}</div>'
+                            f'</div></a>'
+                        )
 
-            if photos_sess:
-                # Grille mini des poissons (3 par ligne)
-                grid_html = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px;">'
-                for ph, esp, tt in photos_sess[:9]:  # max 9 photos
-                    label = f"{esp}" + (f" · {tt:.0f}cm" if tt else "")
-                    grid_html += (
-                        f'<a href="{ph}" target="_blank" style="text-decoration:none;display:block;">'
-                        f'<div style="position:relative;">'
-                        f'<img src="{ph}" style="width:100%;height:90px;'
-                        f'object-fit:cover;border-radius:6px;cursor:zoom-in;'
-                        f'border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.15);">'
-                        f'<div style="position:absolute;bottom:0;left:0;right:0;'
-                        f'background:linear-gradient(transparent,rgba(0,0,0,.8));'
-                        f'color:#fff;font-size:9px;font-weight:700;padding:6px 4px 3px;'
-                        f'border-radius:0 0 6px 6px;text-align:center;">'
-                        f'{label}</div></div></a>'
-                    )
-                grid_html += '</div>'
-                if len(photos_sess) > 9:
-                    grid_html += f'<div style="font-size:10px;color:#78909C;text-align:center;margin-top:4px;">+ {len(photos_sess)-9} autres photos dans le détail</div>'
-                _comp.html(grid_html, height=110 + ((len(photos_sess[:9])-1)//3) * 96, scrolling=False)
+            if sess_thumbs:
+                grid_html = (
+                    '<div style="display:grid;'
+                    'grid-template-columns:repeat(auto-fill,minmax(95px,1fr));'
+                    'gap:6px;margin:4px 0 8px;">'
+                    + "".join(sess_thumbs) +
+                    '</div>'
+                )
+                _comp.html(grid_html,
+                            height=int(110 * ((len(sess_thumbs) // 6) + 1)),
+                            scrolling=False)
 
             # Stats
             st.markdown(

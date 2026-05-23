@@ -494,24 +494,21 @@ def _render_gallery_by_session() -> None:
             type_color = "#2E7D32"  # vert (loisir)
             type_icon  = "🎣"
 
-        # Helper pour convertir une image locale en base64 (vignette taille fixe)
+        # Helper pour vignette URL Supabase (taille fixe, cliquable)
         def _img_thumb(path: str, border_color: str, badge: str) -> str:
-            try:
-                ext  = Path(path).suffix.lower().lstrip(".")
-                mime = "image/jpeg" if ext in ("jpg", "jpeg") else f"image/{ext}"
-                b64  = base64.b64encode(Path(path).read_bytes()).decode()
-                return (
-                    f'<div style="position:relative;width:100%;aspect-ratio:1;'
-                    f'border-radius:8px;overflow:hidden;border:2px solid {border_color};">'
-                    f'<img src="data:{mime};base64,{b64}" '
-                    f'style="width:100%;height:100%;object-fit:cover;display:block;"/>'
-                    f'<div style="position:absolute;bottom:2px;left:2px;'
-                    f'background:{border_color};color:#fff;font-size:9px;font-weight:700;'
-                    f'padding:1px 5px;border-radius:4px;line-height:1.3;">{badge}</div>'
-                    f'</div>'
-                )
-            except Exception:
+            if not path or not str(path).startswith("http"):
                 return ""
+            return (
+                f'<a href="{path}" target="_blank" style="text-decoration:none;display:block;">'
+                f'<div style="position:relative;width:100%;aspect-ratio:1;'
+                f'border-radius:8px;overflow:hidden;border:2px solid {border_color};cursor:zoom-in;">'
+                f'<img src="{path}" '
+                f'style="width:100%;height:100%;object-fit:cover;display:block;"/>'
+                f'<div style="position:absolute;bottom:2px;left:2px;'
+                f'background:{border_color};color:#fff;font-size:9px;font-weight:700;'
+                f'padding:1px 5px;border-radius:4px;line-height:1.3;">{badge}</div>'
+                f'</div></a>'
+            )
 
         with st.container(border=True):
             # En-tête compact avec gradient du type
