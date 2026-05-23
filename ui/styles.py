@@ -28,6 +28,21 @@ section[data-testid="stSidebar"] h1,
 section[data-testid="stSidebar"] h2,
 section[data-testid="stSidebar"] h3 { color: #fff !important; }
 
+/* Inputs sidebar — texte foncé sur fond clair pour rester lisible */
+section[data-testid="stSidebar"] input,
+section[data-testid="stSidebar"] textarea,
+section[data-testid="stSidebar"] [data-baseweb="input"] input,
+section[data-testid="stSidebar"] [data-baseweb="select"] input {
+    color: #0c2340 !important;
+    background-color: #fff !important;
+    -webkit-text-fill-color: #0c2340 !important;
+}
+section[data-testid="stSidebar"] input::placeholder,
+section[data-testid="stSidebar"] textarea::placeholder {
+    color: #90A4AE !important;
+    -webkit-text-fill-color: #90A4AE !important;
+}
+
 /* boutons sidebar */
 section[data-testid="stSidebar"] button[kind="secondary"] {
     background: rgba(255,255,255,0.08) !important;
