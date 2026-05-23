@@ -562,11 +562,83 @@ def _render_sessions_list(terminee: bool, type_filter: str | None = None) -> Non
             if meteo_parts:
                 st.caption(" · ".join(meteo_parts))
 
-            mat_parts = []
-            if safe_str(row.get("canne")): mat_parts.append(f"🎯 {row['canne']}")
-            if safe_str(row.get("moulinet")): mat_parts.append(f"⚙️ {row['moulinet']}")
-            if mat_parts:
-                st.caption(" · ".join(mat_parts))
+            # ─── Matériel utilisé (extrait des captures + session) ────────────
+            mat_rows = []
+
+            # Matériel niveau session (canne/moulinet par défaut)
+            if safe_str(row.get("canne")):
+                mat_rows.append(("🎯 Canne",    safe_str(row['canne'])))
+            if safe_str(row.get("moulinet")):
+                mat_rows.append(("⚙️ Moulinet", safe_str(row['moulinet'])))
+
+            # Agréger les matériels uniques utilisés dans les captures
+            if not sess_caps.empty:
+                cannes_used    = sorted({safe_str(c) for c in sess_caps.get("canne",        []) if safe_str(c)})
+                mouli_used     = sorted({safe_str(c) for c in sess_caps.get("moulinet",     []) if safe_str(c)})
+                bobines_used   = sorted({safe_str(c) for c in sess_caps.get("bobine_moulinet", []) if safe_str(c)})
+                appats_used    = sorted({safe_str(c) for c in sess_caps.get("appat",        []) if safe_str(c)})
+                montages_used  = sorted({safe_str(c) for c in sess_caps.get("montage",      []) if safe_str(c)})
+                fils_used      = sorted({safe_str(c) for c in sess_caps.get("fil_corps_de_ligne", []) if safe_str(c)})
+                empiles_used   = sorted({safe_str(c) for c in sess_caps.get("fil_empile",   []) if safe_str(c)})
+
+                # Cannes/moulinets supplémentaires utilisés (différents du défaut)
+                extra_cannes = [c for c in cannes_used if c != safe_str(row.get("canne",""))]
+                extra_mouli  = [c for c in mouli_used  if c != safe_str(row.get("moulinet",""))]
+                if extra_cannes and not safe_str(row.get("canne")):
+                    mat_rows.append(("🎯 Canne(s)", " · ".join(extra_cannes)))
+                elif extra_cannes:
+                    mat_rows.append(("🎯 Autres cannes", " · ".join(extra_cannes)))
+                if extra_mouli and not safe_str(row.get("moulinet")):
+                    mat_rows.append(("⚙️ Moulinet(s)", " · ".join(extra_mouli)))
+                elif extra_mouli:
+                    mat_rows.append(("⚙️ Autres moulinets", " · ".join(extra_mouli)))
+
+                if bobines_used:  mat_rows.append(("🧶 Bobine(s)", " · ".join(bobines_used)))
+                if fils_used:     mat_rows.append(("〰️ Corps de ligne", " · ".join(fils_used)))
+                if empiles_used:  mat_rows.append(("🪢 Empile(s)", " · ".join(empiles_used)))
+                if appats_used:   mat_rows.append(("🪱 Appât(s)", " · ".join(appats_used)))
+                if montages_used: mat_rows.append(("🧵 Montage(s)", " · ".join(montages_used)))
+
+                # Hameçons agrégés
+                hameçons = set()
+                for _, cr in sess_caps.iterrows():
+                    h = " ".join(filter(None, [
+                        safe_str(cr.get("marque_hamecon")),
+                        safe_str(cr.get("modele_hamecon")),
+                        f"#{cr['taille_hamecon']}" if safe_str(cr.get("taille_hamecon")) else "",
+                    ]))
+                    if h.strip():
+                        hameçons.add(h.strip())
+                if hameçons:
+                    mat_rows.append(("🪝 Hameçon(s)", " · ".join(sorted(hameçons))))
+
+                # Distance moyenne
+                dists = pd.to_numeric(sess_caps.get("distance_lancer_m", []), errors="coerce").dropna()
+                dists = dists[dists > 0]
+                if not dists.empty:
+                    if len(dists) > 1:
+                        mat_rows.append(("📐 Distance lancer", f"moy. {dists.mean():.0f} m · max {dists.max():.0f} m"))
+                    else:
+                        mat_rows.append(("📐 Distance lancer", f"{dists.iloc[0]:.0f} m"))
+
+            if mat_rows:
+                mat_html = (
+                    '<div style="background:#f5f7fa;border-left:3px solid #1565C0;'
+                    'padding:8px 12px;border-radius:6px;margin:6px 0;'
+                    'font-family:system-ui,sans-serif;">'
+                    '<div style="font-size:9px;font-weight:800;letter-spacing:1.5px;'
+                    'text-transform:uppercase;color:#1565C0;margin-bottom:6px;">Matériel utilisé</div>'
+                )
+                for lbl, val in mat_rows:
+                    mat_html += (
+                        f'<div style="display:flex;justify-content:space-between;align-items:flex-start;'
+                        f'padding:3px 0;border-bottom:1px solid #e3e8ec;gap:8px;">'
+                        f'<span style="font-size:11px;color:#546E7A;font-weight:600;flex-shrink:0;">{lbl}</span>'
+                        f'<span style="font-size:11px;font-weight:700;color:#0c2340;text-align:right;">{val}</span>'
+                        f'</div>'
+                    )
+                mat_html += '</div>'
+                _comp.html(mat_html, height=50 + len(mat_rows) * 24, scrolling=False)
 
             if safe_str(row.get("commentaire")):
                 st.caption(f"💬 {safe_str(row.get('commentaire'))}")
