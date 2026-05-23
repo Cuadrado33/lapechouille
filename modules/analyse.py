@@ -252,26 +252,20 @@ def _render_trophees(captures: pd.DataFrame, sessions: pd.DataFrame) -> None:
         # SVG via helper centralisé
         vis_html = get_fish_visual(espece, size=100, bg="#f5f7f9")
 
-        # Photo personnelle
+        # Photo personnelle (URL Supabase)
         photo_html = ""
-        if photo:
-            try:
-                ext  = Path(photo).suffix.lower().lstrip(".")
-                mime = "image/jpeg" if ext in ("jpg","jpeg") else f"image/{ext}"
-                b64  = base64.b64encode(Path(photo).read_bytes()).decode()
-                tag  = "🏆" if r["trophy"] else "📸"
-                photo_html = (
-                    f'<div style="position:relative;width:100%;height:100%;">'
-                    f'<img src="data:{mime};base64,{b64}" '
-                    f'style="width:100%;height:100%;object-fit:cover;'
-                    f'border-radius:8px;border:2px solid #FFB300;">'
-                    f'<div style="position:absolute;top:4px;right:4px;'
-                    f'background:#FFB300;color:#fff;font-size:10px;font-weight:700;'
-                    f'padding:2px 6px;border-radius:6px;">{tag}</div>'
-                    f'</div>'
-                )
-            except Exception:
-                pass
+        if photo and str(photo).startswith("http"):
+            tag = "🏆" if r["trophy"] else "📸"
+            photo_html = (
+                f'<div style="position:relative;width:100%;height:100%;">'
+                f'<img src="{photo}" '
+                f'style="width:100%;height:100%;object-fit:cover;'
+                f'border-radius:8px;border:2px solid #FFB300;">'
+                f'<div style="position:absolute;top:4px;right:4px;'
+                f'background:#FFB300;color:#fff;font-size:10px;font-weight:700;'
+                f'padding:2px 6px;border-radius:6px;">{tag}</div>'
+                f'</div>'
+            )
 
         def _fmt_p(p, suffix=""):
             if p is None: return "—"
