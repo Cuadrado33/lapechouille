@@ -29,6 +29,14 @@ from data.emojis import APPAT, MER, icon_box
 from data.fish_data import FISH_SVG, FISH_EMOJI_FALLBACK
 import streamlit.components.v1 as _comp
 
+
+@st.dialog("Photo", width="large")
+def _show_photo_dialog(photo_url: str, titre: str = "") -> None:
+    """Affiche la photo en grand dans une modal native Streamlit."""
+    if titre:
+        st.markdown(f"### {titre}")
+    st.image(photo_url, use_container_width=True)
+
 APPAT_SVG_MAP = {
     "Arénicole":      APPAT.get("arenicole", ""),
     "Néréide":        APPAT.get("nereide", ""),
@@ -1008,15 +1016,13 @@ def _render_session_captures(sid: int, terminee: bool) -> None:
 
             is_record = taille and record_esp and taille >= record_esp
 
-            # Photo — ouvre en nouvel onglet
+            # Photo (bouton zoom natif Streamlit en dehors de l'iframe)
             photo_block = ""
             if photo_path and str(photo_path).startswith("http"):
                 photo_block = f"""
-<a href="{photo_path}" target="_blank" style="display:block;text-decoration:none;">
-  <img src="{photo_path}"
-    style="width:100%;height:200px;object-fit:cover;border-radius:8px;
-    margin:8px 0;cursor:zoom-in;background:#f0f4f8;display:block;">
-</a>"""
+<img src="{photo_path}"
+  style="width:100%;height:200px;object-fit:cover;border-radius:8px;
+  margin:8px 0;background:#f0f4f8;display:block;">"""
 
             # Badges
             badges = []
@@ -1108,17 +1114,21 @@ def _render_session_captures(sid: int, terminee: bool) -> None:
 """, height=h_total, scrolling=False)
 
                         # Boutons actions
-                        ca, cb, cc = st.columns(3)
+                        ca, cb, cc, cd = st.columns(4)
                         edit_cap_key = f"cap_edit_open_{cap_id}"
                         if ca.button("✏️ Modifier", key=f"cap_edit_btn_{cap_id}",
                                       use_container_width=True):
                             st.session_state[edit_cap_key] = not st.session_state.get(edit_cap_key, False)
                             st.rerun()
-                        if cb.button("📋 Copier", key=f"cap_copy_{cap_id}",
+                        if photo_path and str(photo_path).startswith("http"):
+                            if cb.button("🔍 Photo", key=f"cap_zoom_sess_{cap_id}",
+                                          use_container_width=True):
+                                _show_photo_dialog(photo_path, espece)
+                        if cc.button("📋 Copier", key=f"cap_copy_{cap_id}",
                                       use_container_width=True):
                             _duplicate_capture(cap, sid)
                             st.rerun()
-                        if cc.button("🗑️ Suppr.", key=f"cap_del_{cap_id}",
+                        if cd.button("🗑️ Suppr.", key=f"cap_del_{cap_id}",
                                       use_container_width=True):
                             st.session_state[f"confirm_cap_{cap_id}"] = True
 

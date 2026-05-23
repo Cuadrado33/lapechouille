@@ -27,6 +27,14 @@ from data.fish_data import FISH_SVG, FISH_EMOJI_FALLBACK
 from ui.components import hero, section, confirm_destructive, photo_inputs, photo_placeholder
 import streamlit.components.v1 as _comp
 
+
+@st.dialog("Photo", width="large")
+def _show_photo_dialog(photo_url: str, titre: str = "") -> None:
+    """Affiche la photo en grand dans une modal native Streamlit."""
+    if titre:
+        st.markdown(f"### {titre}")
+    st.image(photo_url, use_container_width=True)
+
 # Mapping appât → emoji SVG
 APPAT_SVG_MAP = {
     "Arénicole":          APPAT.get("arenicole", ""),
@@ -387,11 +395,9 @@ def _render_captures_by_session(sessions: pd.DataFrame) -> None:
         photo_block = ""
         if photo_path and str(photo_path).startswith("http"):
             photo_block = f"""
-<a href="{photo_path}" target="_blank" style="display:block;text-decoration:none;">
-  <img src="{photo_path}"
-    style="width:100%;height:280px;object-fit:cover;border-radius:8px;
-    margin:8px 0;cursor:zoom-in;background:#f0f4f8;display:block;">
-</a>"""
+<img src="{photo_path}"
+  style="width:100%;height:280px;object-fit:cover;border-radius:8px;
+  margin:8px 0;background:#f0f4f8;display:block;">"""
 
         # Badges
         badges = []
@@ -433,7 +439,7 @@ def _render_captures_by_session(sessions: pd.DataFrame) -> None:
         tech_section = f'<div class="lp-section-title">Technique</div>{tech_html}' if tech_html else ""
         comment_section = f'<div style="background:#f8f9fa;border-left:3px solid #1565C0;padding:8px 12px;border-radius:4px;font-size:12px;color:#546E7A;font-style:italic;margin-top:8px;">{commentaire}</div>' if commentaire else ""
 
-        # Hauteur dynamique : base + lignes + photo
+        # Hauteur dynamique : base + lignes + photo (avec marge pour agrandissement)
         h_base   = 80   # header seulement (sans SVG)
         h_rows   = (len(poisson_rows) + len(tech_rows)) * 28
         h_titles = 30 + (30 if tech_html else 0)
@@ -473,16 +479,19 @@ def _render_captures_by_session(sessions: pd.DataFrame) -> None:
 </div>
 """, height=h_total, scrolling=False)
 
-            c1, c2, c3 = st.columns(3)
+            c1, c2, c3, c4 = st.columns(4)
             edit_key = f"cap_edit_open_{cap_id}"
             if c1.button("Modifier", key=f"cap_edit_btn_{cap_id}", use_container_width=True):
                 st.session_state[edit_key] = not st.session_state.get(edit_key, False)
                 st.rerun()
+            if photo_path and str(photo_path).startswith("http"):
+                if c2.button("🔍 Voir photo", key=f"cap_zoom_{cap_id}", use_container_width=True):
+                    _show_photo_dialog(photo_path, espece)
             share_key = f"cap_share_{cap_id}"
-            if c2.button("📤 Partager", key=f"cap_share_btn_{cap_id}", use_container_width=True):
+            if c3.button("📤 Partager", key=f"cap_share_btn_{cap_id}", use_container_width=True):
                 st.session_state[share_key] = not st.session_state.get(share_key, False)
                 st.rerun()
-            if c3.button("Supprimer", key=f"cap_del_{cap_id}", use_container_width=True):
+            if c4.button("Supprimer", key=f"cap_del_{cap_id}", use_container_width=True):
                 st.session_state[f"confirm_cap_{cap_id}"] = True
 
             if st.session_state.get(share_key):
