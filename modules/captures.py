@@ -495,7 +495,7 @@ def _render_captures_by_session(sessions: pd.DataFrame) -> None:
                 st.session_state[f"confirm_cap_{cap_id}"] = True
 
             if st.session_state.get(share_key):
-                from ui.components import share_button
+                from ui.components import share_button_v2
                 txt = (f"🎣 La Péchouille — Ma capture\n\n"
                        f"🐟 {espece}\n"
                        f"📏 {taille:.0f} cm · {poids_txt}\n"
@@ -503,7 +503,24 @@ def _render_captures_by_session(sessions: pd.DataFrame) -> None:
                        f"🕐 {heure}\n"
                        + (f"🪱 {appat}\n" if appat else "")
                        + "\nApp : https://lapechouille.fr")
-                share_button(txt, share_key)
+                meta = {
+                    "espece":     espece,
+                    "taille_cm":  taille,
+                    "poids_g":    poids_aff,
+                    "lieu":       lieu,
+                    "heure":      heure,
+                    "appat":      appat,
+                    "trophee":    trophee,
+                }
+                share_button_v2(
+                    item_type="capture",
+                    item_id=cap_id,
+                    item_label=f"{espece} {taille:.0f}cm" if taille else espece,
+                    text_external=txt,
+                    metadata=meta,
+                    photo_url=photo_path if photo_path and photo_path.startswith("http") else "",
+                    key=f"cap_{cap_id}",
+                )
 
             if st.session_state.get(f"confirm_cap_{cap_id}"):
                 if confirm_destructive(f"cap_{cap_id}", f"Supprimer {espece} ?"):

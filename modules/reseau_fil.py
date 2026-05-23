@@ -127,11 +127,18 @@ def render_fil() -> None:
 
             # Badges espèce/taille
             if esp or tail:
-                st.markdown(
-                    f'{"<span style=background:#E3F2FD;color:#1565C0;font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;>🐟 " + esp + "</span> " if esp else ""}'
-                    f'{"<span style=background:#FFF3E0;color:#E65100;font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;>📏 " + str(int(tail)) + " cm</span>" if tail else ""}',
-                    unsafe_allow_html=True,
-                )
+                badges_parts = []
+                if esp:
+                    badges_parts.append(
+                        f'<span style="background:#E3F2FD;color:#1565C0;font-size:11px;'
+                        f'font-weight:700;padding:2px 8px;border-radius:8px;">🐟 {esp}</span>'
+                    )
+                if tail:
+                    badges_parts.append(
+                        f'<span style="background:#FFF3E0;color:#E65100;font-size:11px;'
+                        f'font-weight:700;padding:2px 8px;border-radius:8px;">📏 {int(tail)} cm</span>'
+                    )
+                st.markdown(" ".join(badges_parts), unsafe_allow_html=True)
 
             # Photo
             # Photo du post

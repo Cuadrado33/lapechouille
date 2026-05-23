@@ -721,3 +721,99 @@ function shCopy_{sid}(){{
 }}
 </script>
 """, height=70, scrolling=False)
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  Bouton de partage étendu — Réseau La Péchouille + RS externes
+# ═══════════════════════════════════════════════════════════════════
+
+def share_button_v2(
+    item_type:   str,                # 'capture'|'session'|'materiel'|'spot'|'spot_appat'
+    item_id:     int,
+    item_label:  str,                # affichage : "Bar 52cm"
+    text_external: str,              # texte pour partage WhatsApp/SMS
+    metadata:    dict | None = None, # données structurées du post
+    photo_url:   str = "",
+    key:         str = "",
+    is_spot:     bool = False,       # pour afficher l'option spot_precision
+) -> None:
+    """
+    Bouton de partage étendu avec :
+    - Onglet Réseau La Péchouille (avec visibilité + autorisation repartage)
+    - Onglet Réseaux externes (WhatsApp, SMS, Email, FB, Copier)
+    """
+    import streamlit as st
+    from core.social import share_to_reseau
+
+    if not key:
+        key = f"{item_type}_{item_id}"
+
+    tab_reseau, tab_externes = st.tabs(["🌊 Réseau La Péchouille", "🔗 Réseaux externes"])
+
+    # ── Onglet Réseau ─────────────────────────────────────────────
+    with tab_reseau:
+        if not st.session_state.get("reseau_user"):
+            st.info("👤 Connecte-toi pour publier sur le Réseau.")
+        else:
+            with st.form(f"share_reseau_{key}", clear_on_submit=True):
+                msg = st.text_area(
+                    "Ajoute un mot (optionnel)",
+                    key=f"share_msg_{key}",
+                    placeholder=f"Partage ton expérience sur {item_label}...",
+                    height=80,
+                )
+
+                col_v, col_r = st.columns(2)
+                with col_v:
+                    visibility = st.selectbox(
+                        "👁️ Visibilité",
+                        ["public", "amis", "prive"],
+                        format_func=lambda x: {
+                            "public": "🌍 Public",
+                            "amis":   "👥 Amis seulement",
+                            "prive":  "🔒 Privé (note perso)",
+                        }[x],
+                        key=f"share_vis_{key}",
+                    )
+                with col_r:
+                    allow_reshare = st.checkbox(
+                        "🔄 Autoriser le repartage",
+                        value=True,
+                        key=f"share_resh_{key}",
+                    )
+
+                spot_precision = None
+                if is_spot:
+                    spot_precision = st.radio(
+                        "📍 Précision de la localisation",
+                        ["exact", "localite"],
+                        format_func=lambda x: {
+                            "exact":    "📌 Adresse exacte (GPS)",
+                            "localite": "🏘️ Localité étendue (ville/zone)",
+                        }[x],
+                        index=1,  # par défaut localité (protection du spot)
+                        key=f"share_prec_{key}",
+                        horizontal=True,
+                    )
+
+                if st.form_submit_button("✅ Publier sur le Réseau",
+                                           use_container_width=True, type="primary"):
+                    post = share_to_reseau(
+                        type_post=item_type,
+                        ref_id=item_id,
+                        contenu=msg,
+                        metadata=metadata or {},
+                        photo_url=photo_url,
+                        visibility=visibility,
+                        allow_reshare=allow_reshare,
+                        spot_precision=spot_precision,
+                    )
+                    if post:
+                        st.success("🎉 Publié sur le Réseau !")
+                        st.balloons()
+                    else:
+                        st.error("Erreur lors de la publication.")
+
+    # ── Onglet Réseaux externes ───────────────────────────────────
+    with tab_externes:
+        share_button(text_external, key=f"ext_{key}", label="Partager")
