@@ -50,22 +50,34 @@ def share_to_reseau(
         data["shared_from_id"] = shared_from_id
 
     result = supabase_post("posts", data)
-    if result and isinstance(result, list) and len(result) > 0:
+
+    # supabase_post peut retourner: list, dict, bool, ou None
+    post = None
+    if isinstance(result, list) and len(result) > 0:
         post = result[0]
-        # Si c'est un repartage, notif au créateur original
-        if shared_from_id:
-            original = supabase_get("posts", {"id": f"eq.{shared_from_id}", "select": "user_id"})
-            if original and original[0]["user_id"] != uid:
-                notify(
-                    user_id=original[0]["user_id"],
-                    from_user_id=uid,
-                    type_notif="reshare",
-                    ref_type="post",
-                    ref_id=post["id"],
-                    message="a repartagé ta publication",
-                )
-        return post
-    return None
+    elif isinstance(result, dict):
+        post = result
+    elif result is True:
+        # Insertion réussie mais sans return représentation
+        post = {"id": None, **data}
+
+    if post is None:
+        st.error(f"Erreur Supabase. Réponse: {repr(result)[:200]}")
+        return None
+
+    # Si c'est un repartage, notif au créateur original
+    if shared_from_id and post.get("id"):
+        original = supabase_get("posts", {"id": f"eq.{shared_from_id}", "select": "user_id"})
+        if original and original[0]["user_id"] != uid:
+            notify(
+                user_id=original[0]["user_id"],
+                from_user_id=uid,
+                type_notif="reshare",
+                ref_type="post",
+                ref_id=post["id"],
+                message="a repartagé ta publication",
+            )
+    return post
 
 
 def reshare_post(original_post_id: str, contenu: str = "",

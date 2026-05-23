@@ -125,20 +125,73 @@ def render_fil() -> None:
                 unsafe_allow_html=True,
             )
 
-            # Badges espèce/taille
-            if esp or tail:
-                badges_parts = []
-                if esp:
-                    badges_parts.append(
-                        f'<span style="background:#E3F2FD;color:#1565C0;font-size:11px;'
-                        f'font-weight:700;padding:2px 8px;border-radius:8px;">🐟 {esp}</span>'
-                    )
-                if tail:
-                    badges_parts.append(
-                        f'<span style="background:#FFF3E0;color:#E65100;font-size:11px;'
-                        f'font-weight:700;padding:2px 8px;border-radius:8px;">📏 {int(tail)} cm</span>'
-                    )
-                st.markdown(" ".join(badges_parts), unsafe_allow_html=True)
+            # Badges & infos depuis metadata
+            meta_p = post.get("metadata") or {}
+            if isinstance(meta_p, str):
+                try:
+                    import json as _json
+                    meta_p = _json.loads(meta_p)
+                except Exception:
+                    meta_p = {}
+
+            # Pour rétro-compatibilité : esp/tail anciens posts
+            if not meta_p:
+                if esp:  meta_p["espece"]    = esp
+                if tail: meta_p["taille_cm"] = tail
+
+            # Mapping label/icone par clé
+            FIELD_DISPLAY = {
+                "espece":    ("🐟", "Espèce",       "#E3F2FD", "#1565C0"),
+                "taille_cm": ("📏", "Taille",       "#FFF3E0", "#E65100"),
+                "poids_g":   ("⚖️", "Poids",        "#FFF3E0", "#E65100"),
+                "lieu":      ("📍", "Lieu",         "#E8F5E9", "#2E7D32"),
+                "heure":     ("🕐", "Heure",        "#F3E5F5", "#6A1B9A"),
+                "appat":     ("🪱", "Appât",        "#FFF8E1", "#F57F17"),
+                "montage":   ("🧵", "Montage",      "#E0F7FA", "#006064"),
+                "canne":     ("🎯", "Canne",        "#ECEFF1", "#37474F"),
+                "moulinet":  ("⚙️", "Moulinet",     "#ECEFF1", "#37474F"),
+                "hamecon":   ("🪝", "Hameçon",      "#ECEFF1", "#37474F"),
+                "distance":  ("📐", "Distance",     "#F3E5F5", "#6A1B9A"),
+                "date":      ("📅", "Date",         "#E8F5E9", "#2E7D32"),
+                "type":      ("🎯", "Type",         "#ECEFF1", "#37474F"),
+                "nb_caps":   ("🐟", "Captures",     "#E3F2FD", "#1565C0"),
+                "best":      ("📏", "Meilleure",    "#FFF3E0", "#E65100"),
+                "meteo":     ("🌦️", "Météo",        "#E0F7FA", "#006064"),
+                "maree":     ("🌊", "Marée",        "#E3F2FD", "#1565C0"),
+                "marque":    ("🏷️", "Marque",       "#ECEFF1", "#37474F"),
+                "modele":    ("📋", "Modèle",       "#ECEFF1", "#37474F"),
+                "longueur":  ("📏", "Longueur",     "#FFF3E0", "#E65100"),
+                "puissance": ("⚡", "Puissance",    "#FFF3E0", "#E65100"),
+                "etat":      ("✨", "État",         "#E8F5E9", "#2E7D32"),
+                "nom":       ("📍", "Nom",          "#E8F5E9", "#2E7D32"),
+                "type_spot": ("🏖️", "Type",         "#E0F7FA", "#006064"),
+            }
+
+            badges_parts = []
+            for fk, val in meta_p.items():
+                if val in (None, "", 0, 0.0, False):
+                    continue
+                icn, lbl, bg, fg = FIELD_DISPLAY.get(fk, ("•", fk, "#ECEFF1", "#37474F"))
+                # Formatage de la valeur
+                if fk == "taille_cm":  vstr = f"{int(float(val))} cm"
+                elif fk == "poids_g":
+                    v = float(val)
+                    vstr = f"{v/1000:.2f} kg" if v >= 1000 else f"{int(v)} g"
+                elif fk == "distance": vstr = f"{int(float(val))} m"
+                elif fk == "best":     vstr = f"{int(float(val))} cm"
+                else:                  vstr = str(val)
+                badges_parts.append(
+                    f'<span style="background:{bg};color:{fg};font-size:11px;'
+                    f'font-weight:700;padding:3px 9px;border-radius:8px;'
+                    f'display:inline-block;margin:2px 3px;">'
+                    f'{icn} {vstr}</span>'
+                )
+
+            if badges_parts:
+                st.markdown(
+                    '<div style="margin:6px 0 8px;">' + "".join(badges_parts) + '</div>',
+                    unsafe_allow_html=True,
+                )
 
             # Photo
             # Photo du post

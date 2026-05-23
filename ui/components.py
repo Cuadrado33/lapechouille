@@ -739,7 +739,7 @@ def share_button_v2(
 ) -> None:
     """
     Bouton de partage étendu avec :
-    - Onglet Réseau La Péchouille (avec visibilité + autorisation repartage)
+    - Onglet Réseau La Péchouille (avec visibilité + autorisation repartage + choix des infos)
     - Onglet Réseaux externes (WhatsApp, SMS, Email, FB, Copier)
     """
     import streamlit as st
@@ -748,6 +748,8 @@ def share_button_v2(
     if not key:
         key = f"{item_type}_{item_id}"
 
+    metadata = metadata or {}
+
     tab_reseau, tab_externes = st.tabs(["🌊 Réseau La Péchouille", "🔗 Réseaux externes"])
 
     # ── Onglet Réseau ─────────────────────────────────────────────
@@ -755,13 +757,80 @@ def share_button_v2(
         if not st.session_state.get("reseau_user"):
             st.info("👤 Connecte-toi pour publier sur le Réseau.")
         else:
-            with st.form(f"share_reseau_{key}", clear_on_submit=True):
+            # Champs sélectionnables selon le type d'item
+            # Liste de tuples (clé_metadata, label_affiché, icone)
+            FIELD_OPTIONS = {
+                "capture": [
+                    ("espece",    "Espèce",         "🐟"),
+                    ("taille_cm", "Taille",         "📏"),
+                    ("poids_g",   "Poids",          "⚖️"),
+                    ("lieu",      "Lieu",           "📍"),
+                    ("heure",     "Heure",          "🕐"),
+                    ("appat",     "Appât",          "🪱"),
+                    ("montage",   "Montage",        "🧵"),
+                    ("canne",     "Canne",          "🎯"),
+                    ("moulinet",  "Moulinet",       "⚙️"),
+                    ("hamecon",   "Hameçon",        "🪝"),
+                    ("distance",  "Distance lancer","📐"),
+                ],
+                "session": [
+                    ("lieu",     "Lieu",            "📍"),
+                    ("date",     "Date",            "📅"),
+                    ("type",     "Type session",    "🎯"),
+                    ("nb_caps",  "Nb captures",     "🐟"),
+                    ("best",     "Meilleure taille","📏"),
+                    ("meteo",    "Météo",           "🌦️"),
+                    ("maree",    "Marée/Coef",      "🌊"),
+                ],
+                "materiel": [
+                    ("marque",     "Marque",        "🏷️"),
+                    ("modele",     "Modèle",        "📋"),
+                    ("longueur",   "Longueur",      "📏"),
+                    ("puissance",  "Puissance",     "⚡"),
+                    ("etat",       "État",          "✨"),
+                ],
+                "spot": [
+                    ("nom",        "Nom du spot",   "📍"),
+                    ("type_spot",  "Type",          "🏖️"),
+                    ("commentaire","Commentaire",   "💬"),
+                ],
+                "spot_appat": [
+                    ("nom",        "Nom du spot",   "📍"),
+                    ("appat",      "Appât",         "🪱"),
+                    ("commentaire","Commentaire",   "💬"),
+                ],
+            }
+
+            available_fields = FIELD_OPTIONS.get(item_type, [])
+            # Ne montrer que les champs qui ont une valeur dans metadata
+            visible_fields = [
+                (k, lbl, icn) for (k, lbl, icn) in available_fields
+                if metadata.get(k) not in (None, "", 0, 0.0)
+            ]
+
+            with st.form(f"share_reseau_{key}", clear_on_submit=False):
                 msg = st.text_area(
                     "Ajoute un mot (optionnel)",
                     key=f"share_msg_{key}",
                     placeholder=f"Partage ton expérience sur {item_label}...",
                     height=80,
                 )
+
+                # Sélection des champs à inclure
+                selected_fields = []
+                if visible_fields:
+                    st.markdown("**📋 Informations à publier**")
+                    n_cols = min(3, len(visible_fields))
+                    cols = st.columns(n_cols)
+                    for i, (fk, flbl, ficn) in enumerate(visible_fields):
+                        with cols[i % n_cols]:
+                            checked = st.checkbox(
+                                f"{ficn} {flbl}",
+                                value=True,
+                                key=f"share_field_{key}_{fk}",
+                            )
+                            if checked:
+                                selected_fields.append(fk)
 
                 col_v, col_r = st.columns(2)
                 with col_v:
@@ -791,18 +860,21 @@ def share_button_v2(
                             "exact":    "📌 Adresse exacte (GPS)",
                             "localite": "🏘️ Localité étendue (ville/zone)",
                         }[x],
-                        index=1,  # par défaut localité (protection du spot)
+                        index=1,
                         key=f"share_prec_{key}",
                         horizontal=True,
                     )
 
                 if st.form_submit_button("✅ Publier sur le Réseau",
                                            use_container_width=True, type="primary"):
+                    # Filtrer metadata aux champs sélectionnés uniquement
+                    filtered_meta = {k: v for k, v in metadata.items() if k in selected_fields}
+
                     post = share_to_reseau(
                         type_post=item_type,
                         ref_id=item_id,
                         contenu=msg,
-                        metadata=metadata or {},
+                        metadata=filtered_meta,
                         photo_url=photo_url,
                         visibility=visibility,
                         allow_reshare=allow_reshare,
@@ -811,8 +883,7 @@ def share_button_v2(
                     if post:
                         st.success("🎉 Publié sur le Réseau !")
                         st.balloons()
-                    else:
-                        st.error("Erreur lors de la publication.")
+                    # le message d'erreur est déjà affiché par share_to_reseau
 
     # ── Onglet Réseaux externes ───────────────────────────────────
     with tab_externes:

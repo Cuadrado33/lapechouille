@@ -503,6 +503,11 @@ def _render_captures_by_session(sessions: pd.DataFrame) -> None:
                        f"🕐 {heure}\n"
                        + (f"🪱 {appat}\n" if appat else "")
                        + "\nApp : https://lapechouille.fr")
+                # Hameçon formaté
+                ham_full = " ".join(filter(None, [
+                    ham_marque, ham_type, ham_modele,
+                    f"#{ham_taille}" if ham_taille else ""
+                ]))
                 meta = {
                     "espece":     espece,
                     "taille_cm":  taille,
@@ -510,6 +515,11 @@ def _render_captures_by_session(sessions: pd.DataFrame) -> None:
                     "lieu":       lieu,
                     "heure":      heure,
                     "appat":      appat,
+                    "montage":    montage,
+                    "canne":      canne,
+                    "moulinet":   moulinet,
+                    "hamecon":    ham_full,
+                    "distance":   dist,
                     "trophee":    trophee,
                 }
                 share_button_v2(
