@@ -309,9 +309,17 @@ def _render_new_session() -> None:
         st.cache_data.clear()
         target = date_session.isoformat()
         sh = heure_debut.strftime("%H:%M")
-        eh = heure_fin.strftime("%H:%M") if heure_fin else "en cours"
+        # Pour la requête météo, on prend heure_debut+8h si pas d'heure fin
+        if heure_fin:
+            eh = heure_fin.strftime("%H:%M")
+            eh_label = eh
+        else:
+            from datetime import time as _t
+            _h = (heure_debut.hour + 8) % 24
+            eh = f"{_h:02d}:{heure_debut.minute:02d}"
+            eh_label = "en cours"
         with st.spinner(f"Récupération marée + météo pour le "
-                          f"{date_session.strftime('%d/%m/%Y')} ({sh}–{eh})…"):
+                          f"{date_session.strftime('%d/%m/%Y')} ({sh}–{eh_label})…"):
             # Marée (calculée localement, dépend de la date + position)
             tide_new = estimate_tide(date_session, heure_debut, latitude, longitude)
             st.session_state["ns_tide_values"] = {
@@ -329,7 +337,7 @@ def _render_new_session() -> None:
         st.session_state["ns_auto_key"] = current_key
         if auto_values:
             st.success(f"✅ Conditions récupérées pour le {date_session.strftime('%d/%m/%Y')} "
-                        f"({sh}–{eh}).")
+                        f"({sh}–{eh_label}).")
         else:
             st.warning("Données météo indisponibles, mais marée mise à jour. "
                         "Vérifie que la date n'est pas trop loin dans le passé/futur.")
