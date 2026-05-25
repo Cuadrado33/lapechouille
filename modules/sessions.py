@@ -516,9 +516,28 @@ def _render_sessions_list(terminee: bool, type_filter: str | None = None) -> Non
         type_icon  = "🏆" if "ompétition" in type_s \
                      else ("🎯" if "ntra" in type_s else "🎣")
 
-        with st.expander(f"{type_icon} **{lieu}** · {d}", expanded=False):
+        # Pour les sessions en cours → tout déployé dans un container
+        # Pour les sessions passées → expander replié
+        if terminee:
+            session_block = st.expander(f"{type_icon} **{lieu}** · {d}", expanded=False)
+        else:
+            session_block = st.container(border=True)
+
+        with session_block:
             coef_s = safe_str(row.get("coefficient_maree"))
             coef_txt = f" · 🌊 Coef {int(float(coef_s))}" if coef_s and coef_s.replace('.','').isdigit() else ""
+            # Titre EN COURS visible seulement si pas dans un expander
+            if not terminee:
+                fin_lbl = "en cours" if fin == "—" else f"→ {fin}"
+                st.markdown(
+                    f'<div style="background:linear-gradient(135deg,#C62828,#E65100);'
+                    f'color:#fff;padding:8px 14px;border-radius:8px;margin-bottom:10px;'
+                    f'display:flex;justify-content:space-between;align-items:center;">'
+                    f'<span style="font-size:14px;font-weight:900;">🔴 {type_icon} {lieu}</span>'
+                    f'<span style="font-size:11px;">{d} · {debut} {fin_lbl}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
             st.markdown(
                 f'<div style="background:linear-gradient(135deg,{type_color}cc,{type_color}88);'
                 f'color:#fff;padding:6px 10px;border-radius:6px;margin-bottom:8px;">'
@@ -659,9 +678,33 @@ def _render_sessions_list(terminee: bool, type_filter: str | None = None) -> Non
             if safe_str(row.get("commentaire")):
                 st.caption(f"💬 {safe_str(row.get('commentaire'))}")
 
+            uk = f"{tf_key}_{sid}_{row_idx}"
+
+            # ── Bouton primaire pour sessions en cours ───────────────
+            if not terminee:
+                add_cap_key = f"sess_add_cap_open_{uk}"
+                cn1, cn2 = st.columns([2, 1])
+                if cn1.button("🎣 ➕ Nouvelle capture", key=f"sess_add_cap_{uk}",
+                                use_container_width=True, type="primary"):
+                    st.session_state[add_cap_key] = not st.session_state.get(add_cap_key, False)
+                    st.rerun()
+                if cn2.button("🏁 Finir la session", key=f"sess_finish_{uk}",
+                                use_container_width=True):
+                    from core.database import update_row
+                    update_row("sessions", sid, {
+                        "session_terminee": 1,
+                        "heure_fin": datetime.now().strftime("%H:%M"),
+                    })
+                    st.cache_data.clear()
+                    st.success("✅ Session terminée !")
+                    st.rerun()
+
+                # Formulaire nouvelle capture inline si ouvert
+                if st.session_state.get(add_cap_key):
+                    _render_add_capture_inline(sid)
+
             # Boutons — clé unique par tf_key + sid + row_idx
             ca, cb, cc = st.columns(3)
-            uk = f"{tf_key}_{sid}_{row_idx}"
             edit_key = f"sess_edit_{uk}"
             if ca.button("✏️ Modifier", key=f"sess_edit_btn_{uk}", use_container_width=True):
                 st.session_state[edit_key] = not st.session_state.get(edit_key, False)
