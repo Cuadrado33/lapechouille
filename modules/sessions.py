@@ -174,7 +174,13 @@ def _render_new_session() -> None:
         date_session = st.date_input("Date", value=date.today(), format="DD/MM/YYYY", key="ns_date")
     with col2:
         heure_debut = st.time_input("Heure début", value=time(20, 0), key="ns_debut")
-        heure_fin   = st.time_input("Heure fin",   value=time(0,  0), key="ns_fin")
+        fin_renseignee = st.checkbox("Renseigner l'heure de fin", value=False, key="ns_fin_check",
+                                       help="Décoche pour laisser la session en cours")
+        if fin_renseignee:
+            heure_fin = st.time_input("Heure fin", value=time(23, 0), key="ns_fin")
+        else:
+            heure_fin = None
+            st.caption("⏱️ Session en cours — tu pourras renseigner l'heure de fin plus tard.")
 
     section("Localisation", icon="📍")
 
@@ -290,8 +296,9 @@ def _render_new_session() -> None:
     st.markdown(time_badge, unsafe_allow_html=True)
 
     # Clé d'invalidation : si date/heure/position ont changé, on vide
+    _fin_str = heure_fin.strftime('%H:%M') if heure_fin else "none"
     current_key = f"{date_session.isoformat()}_{heure_debut.strftime('%H:%M')}_" \
-                  f"{heure_fin.strftime('%H:%M')}_{latitude:.4f}_{longitude:.4f}"
+                  f"{_fin_str}_{latitude:.4f}_{longitude:.4f}"
     if st.session_state.get("ns_auto_key") != current_key:
         st.session_state.pop("ns_auto_values", None)
         st.session_state.pop("ns_tide_values", None)
@@ -302,7 +309,7 @@ def _render_new_session() -> None:
         st.cache_data.clear()
         target = date_session.isoformat()
         sh = heure_debut.strftime("%H:%M")
-        eh = heure_fin.strftime("%H:%M")
+        eh = heure_fin.strftime("%H:%M") if heure_fin else "en cours"
         with st.spinner(f"Récupération marée + météo pour le "
                           f"{date_session.strftime('%d/%m/%Y')} ({sh}–{eh})…"):
             # Marée (calculée localement, dépend de la date + position)
@@ -361,8 +368,9 @@ def _render_new_session() -> None:
 
     auto_values = st.session_state.get("ns_auto_values", {})
     if auto_values:
+        _fin_label = heure_fin.strftime('%H:%M') if heure_fin else "en cours"
         st.caption(f"📊 Météo récupérée pour le **{date_session.strftime('%d/%m/%Y')}** "
-                    f"de **{heure_debut.strftime('%H:%M')}** à **{heure_fin.strftime('%H:%M')}**")
+                    f"de **{heure_debut.strftime('%H:%M')}** à **{_fin_label}**")
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Temp. air", f"{auto_values.get('temperature_2m','—')} °C")
         c2.metric("Temp. eau", f"{auto_values.get('sea_surface_temperature','—')} °C")
@@ -375,12 +383,12 @@ def _render_new_session() -> None:
             return
 
         # Détecter automatiquement si la session est déjà terminée
-        # (date passée OU date d'aujourd'hui avec heure de fin passée)
         now_dt    = datetime.now()
-        end_dt    = datetime.combine(date_session, heure_fin)
-        is_past   = end_dt < now_dt
-        # Cas où heure_fin = 00:00 (placeholder) → on regarde la date seule
-        if heure_fin == time(0, 0) and date_session < now_dt.date():
+        is_past = False
+        if heure_fin:
+            end_dt = datetime.combine(date_session, heure_fin)
+            is_past = end_dt < now_dt
+        elif date_session < now_dt.date():
             is_past = True
 
         data = {
@@ -389,8 +397,8 @@ def _render_new_session() -> None:
             "date_session": date_session.isoformat(), "lieu": lieu.strip(),
             "latitude": latitude, "longitude": longitude,
             "heure_debut": heure_debut.strftime("%H:%M"),
-            "heure_fin":   heure_fin.strftime("%H:%M"),
-            "duree_heures": compute_duration_hours(heure_debut, heure_fin),
+            "heure_fin":   heure_fin.strftime("%H:%M") if heure_fin else None,
+            "duree_heures": compute_duration_hours(heure_debut, heure_fin) if heure_fin else None,
             "coefficient_maree": coefficient,
             "maree_haute": maree_haute.strftime("%H:%M"),
             "maree_basse": maree_basse.strftime("%H:%M"),
@@ -1203,6 +1211,31 @@ def _render_add_capture_inline(sid: int) -> None:
     with st.container(border=True):
         st.markdown("**➕ Nouvelle capture**")
 
+        # ── Présélection depuis la dernière capture de la session ──
+        prev_caps = load_captures_for_session(sid)
+        last_cap = None
+        if not prev_caps.empty:
+            # Dernière par capture_num ou par id
+            sort_col = "capture_num" if "capture_num" in prev_caps.columns else "id"
+            last_cap = prev_caps.sort_values(sort_col, ascending=False).iloc[0]
+
+        # Bouton "Reprendre matériel précédent"
+        reuse_key = f"nc_reuse_{sid}"
+        if last_cap is not None:
+            c_reuse1, c_reuse2 = st.columns([3, 1])
+            with c_reuse1:
+                reuse_prev = st.checkbox(
+                    f"📋 Reprendre le matériel/montage/appât de la capture précédente "
+                    f"({safe_str(last_cap.get('espece','—'))})",
+                    value=True,
+                    key=reuse_key,
+                    help="Tu pourras toujours modifier les valeurs ci-dessous",
+                )
+            with c_reuse2:
+                st.caption("⏱️ Gain de temps")
+        else:
+            reuse_prev = False
+
         # Photo HORS formulaire (incompatible avec st.form)
         with st.container(border=True):
             st.markdown("**📸 Photo de la capture**")
@@ -1214,8 +1247,15 @@ def _render_add_capture_inline(sid: int) -> None:
                                         key=f"nc_upl_{sid}")
             new_photo = upl if upl is not None else cam
 
+        # ── Helper pour récupérer la valeur par défaut depuis la précédente capture ──
+        def _prev(field: str, fallback=""):
+            if reuse_prev and last_cap is not None:
+                v = safe_str(last_cap.get(field, ""))
+                return v if v else fallback
+            return fallback
+
         # ── Matériel HORS form pour que le changement de moulinet déclenche un rerun ──
-        with st.expander("🎒 Matériel utilisé (canne / moulinet / bobine)"):
+        with st.expander("🎒 Matériel utilisé (canne / moulinet / bobine)", expanded=reuse_prev):
             cannes_opts = ["— Aucune —"]
             try:
                 df_c = load_materiel("canne")
@@ -1252,23 +1292,36 @@ def _render_add_capture_inline(sid: int) -> None:
             except Exception:
                 pass
 
+            # Index par défaut depuis dernière capture
+            canne_prev = _prev("canne")
+            idx_canne = cannes_opts.index(canne_prev) if canne_prev in cannes_opts else 0
+            moul_prev = _prev("moulinet")
+            idx_moul  = moulinets_opts.index(moul_prev) if moul_prev in moulinets_opts else 0
+
             mc1, mc2 = st.columns(2)
             canne_sel    = mc1.selectbox("🎯 Canne",    cannes_opts,
+                                            index=idx_canne,
                                             key=f"nc_canne_{sid}")
             moulinet_sel = mc2.selectbox("⚙️ Moulinet", moulinets_opts,
+                                            index=idx_moul,
                                             key=f"nc_moul_{sid}")
 
             # Liste des bobines dynamique selon le moulinet choisi
             bobines_opts = ["— Aucune —"]
             if moulinet_sel and moulinet_sel != "— Aucun —":
                 bobines_opts.extend(moulinets_bobines.get(moulinet_sel, []))
+            bob_prev = _prev("bobine_moulinet")
+            idx_bob  = bobines_opts.index(bob_prev) if bob_prev in bobines_opts else 0
             bobine_sel = st.selectbox("🧵 Bobine utilisée", bobines_opts,
+                                        index=idx_bob,
                                         key=f"nc_bob_{sid}",
                                         help="Bobines du moulinet sélectionné ci-dessus")
 
         with st.form(f"add_cap_{sid}", clear_on_submit=True):
             cap_num = next_capture_number(sid)
             st.caption(f"Capture n°{cap_num} · Session #{sid}")
+            if reuse_prev and last_cap is not None:
+                st.success(f"📋 Champs matériel pré-remplis depuis la capture précédente — modifie ce qui change.")
 
             c1, c2, c3 = st.columns(3)
             with c1:
@@ -1279,9 +1332,15 @@ def _render_add_capture_inline(sid: int) -> None:
                 heure  = st.time_input("Heure", value=datetime.now().time().replace(second=0, microsecond=0),
                                         key=f"nc_h_{sid}")
             with c3:
-                appat   = st.selectbox("Appât",   APPATS,   key=f"nc_a_{sid}")
+                # Pré-remplissage appât
+                appat_prev = _prev("appat")
+                idx_appat  = APPATS.index(appat_prev) if appat_prev in APPATS else 0
+                appat   = st.selectbox("Appât",   APPATS, index=idx_appat, key=f"nc_a_{sid}")
+
                 montage_opts = _get_user_montages()
-                montage = st.selectbox("Montage", montage_opts, key=f"nc_m_{sid}",
+                montage_prev = _prev("montage")
+                idx_mont = montage_opts.index(montage_prev) if montage_prev in montage_opts else 0
+                montage = st.selectbox("Montage", montage_opts, index=idx_mont, key=f"nc_m_{sid}",
                                          help="Tes montages enregistrés en haut, classiques en dessous")
                 # Ignorer les séparateurs et "— Choisir —"
                 if montage in ("— Choisir —", "──────────"):
@@ -1293,12 +1352,26 @@ def _render_add_capture_inline(sid: int) -> None:
 
             with st.expander("🪝 Détails hameçon"):
                 h1, h2, h3, h4 = st.columns(4)
-                marque_h = h1.selectbox("Marque",  MARQUES_HAMECONS, key=f"nc_mh_{sid}")
-                type_h   = h2.selectbox("Type",    TYPES_HAMECONS,   key=f"nc_th_{sid}")
-                modele_h = h3.selectbox("Modèle",  MODELES_HAMECONS, key=f"nc_mdh_{sid}")
-                taille_h = h4.selectbox("Taille",  TAILLES_HAMECONS, key=f"nc_tlh_{sid}")
+                mh_prev = _prev("marque_hamecon")
+                th_prev = _prev("type_hamecon")
+                mdh_prev = _prev("modele_hamecon")
+                tlh_prev = _prev("taille_hamecon")
+                marque_h = h1.selectbox("Marque",  MARQUES_HAMECONS,
+                                          index=MARQUES_HAMECONS.index(mh_prev) if mh_prev in MARQUES_HAMECONS else 0,
+                                          key=f"nc_mh_{sid}")
+                type_h   = h2.selectbox("Type",    TYPES_HAMECONS,
+                                          index=TYPES_HAMECONS.index(th_prev) if th_prev in TYPES_HAMECONS else 0,
+                                          key=f"nc_th_{sid}")
+                modele_h = h3.selectbox("Modèle",  MODELES_HAMECONS,
+                                          index=MODELES_HAMECONS.index(mdh_prev) if mdh_prev in MODELES_HAMECONS else 0,
+                                          key=f"nc_mdh_{sid}")
+                taille_h = h4.selectbox("Taille",  TAILLES_HAMECONS,
+                                          index=TAILLES_HAMECONS.index(tlh_prev) if tlh_prev in TAILLES_HAMECONS else 0,
+                                          key=f"nc_tlh_{sid}")
 
-            distance    = st.number_input("Distance lancer (m)", 0.0, step=5.0, key=f"nc_d_{sid}")
+            distance    = st.number_input("Distance lancer (m)",
+                                            value=float(_prev("distance_lancer_m", 0) or 0),
+                                            min_value=0.0, step=5.0, key=f"nc_d_{sid}")
             commentaire = st.text_area("Commentaire", key=f"nc_com_{sid}")
 
             if st.form_submit_button("🎣 Enregistrer la capture",

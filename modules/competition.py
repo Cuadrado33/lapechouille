@@ -100,11 +100,18 @@ def _render_new_competition() -> None:
                                               help="Le timer démarrera à cette durée puis décompte jusqu'à 0")
                 st.caption(f"⏳ Compte à rebours de {duree_min // 60}h{duree_min % 60:02d}")
             else:
-                duree_min = st.number_input("Durée prévue (info, en minutes)",
-                                              min_value=15, max_value=720,
-                                              value=180, step=15, key="cn_duree",
-                                              help="Indicatif — le chrono compte sans limite")
-                st.caption(f"⏱️ Chrono — durée prévue {duree_min // 60}h{duree_min % 60:02d}")
+                duree_renseignee = st.checkbox("Définir une durée prévue",
+                                                  value=False, key="cn_duree_check",
+                                                  help="Décoche pour un chrono sans heure de fin estimée")
+                if duree_renseignee:
+                    duree_min = st.number_input("Durée prévue (en minutes)",
+                                                  min_value=15, max_value=720,
+                                                  value=180, step=15, key="cn_duree",
+                                                  help="Indicatif — le chrono compte sans limite")
+                    st.caption(f"⏱️ Chrono — durée prévue {duree_min // 60}h{duree_min % 60:02d}")
+                else:
+                    duree_min = None
+                    st.caption("⏱️ Chrono — pas d'heure de fin prévue, tu finiras quand tu voudras")
 
         # ── Localisation rapide ──────────────────────────────────────
         st.markdown("**📍 Localisation**")
@@ -163,7 +170,7 @@ def _render_new_competition() -> None:
                     st.error(e)
             else:
                 now_t = datetime.now()
-                heure_fin_prev = (now_t + timedelta(minutes=duree_min)).time()
+                heure_fin_prev = (now_t + timedelta(minutes=duree_min)).time() if duree_min else None
                 # Tag le mode dans le commentaire pour le retrouver après rerun
                 mode_tag = "[TIMER]" if is_timer else "[CHRONO]"
                 sid = insert_row("sessions", {
@@ -174,11 +181,11 @@ def _render_new_competition() -> None:
                     "latitude":         lat,
                     "longitude":        lon,
                     "heure_debut":      now_t.strftime("%H:%M"),
-                    "heure_fin":        heure_fin_prev.strftime("%H:%M"),
-                    "duree_heures":     round(duree_min / 60, 2),
+                    "heure_fin":        heure_fin_prev.strftime("%H:%M") if heure_fin_prev else None,
+                    "duree_heures":     round(duree_min / 60, 2) if duree_min else None,
                     "commentaire":      f"{mode_tag} 🏆 {nom_comp.strip()} — "
-                                          f"{'compte à rebours' if is_timer else 'chrono'} "
-                                          f"{duree_min} min",
+                                          f"{'compte à rebours' if is_timer else 'chrono'}"
+                                          + (f" {duree_min} min" if duree_min else " (sans durée prévue)"),
                     "created_at":       now_t.isoformat(timespec="seconds"),
                 })
                 # Nettoyer le state

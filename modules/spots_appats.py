@@ -450,7 +450,27 @@ def _render_list() -> None:
                 st.session_state[f"ba_confirm_{spot_id}"] = True
 
             if share_open:
-                share_location_widget(lat, lon, nom=nom)
+                from ui.components import share_button_v2
+                txt = (f"🎣 La Péchouille — Mon spot appât\n\n"
+                       f"📍 {nom}\n"
+                       + (f"🪱 {type_appat}\n" if type_appat != "—" else "")
+                       + (f"🌊 Marée : {maree}\n" if maree != "—" else "")
+                       + "\nApp : https://lapechouille.fr")
+                meta = {
+                    "nom":         nom,
+                    "appat":       type_appat if type_appat != "—" else "",
+                    "commentaire": comment,
+                }
+                share_button_v2(
+                    item_type="spot_appat",
+                    item_id=spot_id,
+                    item_label=nom,
+                    text_external=txt,
+                    metadata=meta,
+                    photo_url=photo_path if str(photo_path).startswith("http") else "",
+                    key=f"ba_{spot_id}",
+                    is_spot=True,
+                )
             if edit_open:
                 _render_edit(spot_id, row)
             if photos_open:

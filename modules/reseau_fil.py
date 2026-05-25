@@ -169,7 +169,12 @@ def render_fil() -> None:
 
             badges_parts = []
             for fk, val in meta_p.items():
-                if val in (None, "", 0, 0.0, False):
+                # Filtrer seulement les valeurs vraiment vides — garder les 0 valides
+                if val is None or val == "":
+                    continue
+                # 0 est valide pour nb_caps (zéro prise) ou taille (poisson minuscule)
+                # mais False/booléen non
+                if isinstance(val, bool) and not val:
                     continue
                 icn, lbl, bg, fg = FIELD_DISPLAY.get(fk, ("•", fk, "#ECEFF1", "#37474F"))
                 # Formatage de la valeur

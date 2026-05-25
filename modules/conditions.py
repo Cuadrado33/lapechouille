@@ -72,14 +72,16 @@ def _base_layout(fig: go.Figure, h: int = CHART_H) -> None:
 # MARÉE
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _render_maree(latitude: float, longitude: float) -> None:
+def _render_maree(latitude: float, longitude: float, analysis_date: date | None = None) -> None:
+    if analysis_date is None:
+        analysis_date = date.today()
     section("Marée", icon="🌊", anchor_id="maree")
     with st.container(border=True):
         # ── 1. Tentative depuis la base de marées Supabase ────────
         try:
             from core.tides_db import get_tides_for_spot, format_time_fr
 
-            tide_data = get_tides_for_spot(latitude, longitude, date.today().isoformat())
+            tide_data = get_tides_for_spot(latitude, longitude, analysis_date.isoformat())
 
             if tide_data and tide_data.get("events"):
                 port = tide_data["port"]
@@ -229,6 +231,74 @@ def _render_maree(latitude: float, longitude: float) -> None:
                         conseil = "💤 **Mortes-eaux** — Faible activité, mais peut être bon pour certaines espèces sédentaires."
                     st.info(conseil)
 
+                # ── Graphique des coefficients sur 30 jours ────────────
+                from core.supabase_client import supabase_get
+                d0 = (analysis_date - timedelta(days=15)).isoformat() + "T00:00:00Z"
+                d1 = (analysis_date + timedelta(days=15)).isoformat() + "T00:00:00Z"
+                month_events = supabase_get("tide_events", {
+                    "port_id":      f"eq.{port['id']}",
+                    "type":         "eq.PM",
+                    "datetime_utc": f"gte.{d0}",
+                    "order":        "datetime_utc.asc",
+                    "limit":        "120",
+                }) or []
+                month_events = [e for e in month_events if e["datetime_utc"] < d1 and e.get("coefficient")]
+
+                if len(month_events) >= 4:
+                    st.markdown("**📊 Coefficients sur 30 jours** (vives-eaux ↔ mortes-eaux)")
+                    dates_c  = []
+                    coefs    = []
+                    for e in month_events:
+                        try:
+                            dt_local = datetime.fromisoformat(e["datetime_utc"].replace("Z","+00:00"))
+                            dates_c.append(dt_local)
+                            coefs.append(int(e["coefficient"]))
+                        except Exception:
+                            pass
+
+                    # Couleurs selon le coef
+                    bar_colors = []
+                    for c in coefs:
+                        if c >= 95:   bar_colors.append("#C62828")   # vives-eaux fortes (rouge)
+                        elif c >= 70: bar_colors.append("#1565C0")   # moyennes (bleu)
+                        elif c >= 45: bar_colors.append("#FB8C00")   # faibles (orange)
+                        else:         bar_colors.append("#90A4AE")   # mortes-eaux (gris)
+
+                    fig_coef = go.Figure()
+                    fig_coef.add_trace(go.Bar(
+                        x=dates_c, y=coefs,
+                        marker=dict(color=bar_colors),
+                        hovertemplate="<b>%{x|%a %d/%m %H:%M}</b><br>Coef <b>%{y}</b><extra></extra>",
+                        showlegend=False,
+                    ))
+                    # Lignes de référence
+                    fig_coef.add_hline(y=95, line=dict(color="#C62828", width=1, dash="dot"),
+                                         annotation_text="Vives-eaux fortes", annotation_position="right",
+                                         annotation_font=dict(size=9, color="#C62828"))
+                    fig_coef.add_hline(y=70, line=dict(color="#1565C0", width=1, dash="dot"),
+                                         annotation_text="Moyennes", annotation_position="right",
+                                         annotation_font=dict(size=9, color="#1565C0"))
+                    fig_coef.add_hline(y=45, line=dict(color="#FB8C00", width=1, dash="dot"),
+                                         annotation_text="Mortes-eaux", annotation_position="right",
+                                         annotation_font=dict(size=9, color="#FB8C00"))
+                    # Marqueur jour analysé
+                    fig_coef.add_vline(
+                        x=datetime.combine(analysis_date, datetime.min.time()).timestamp() * 1000,
+                        line=dict(color="#0c2340", width=2),
+                        annotation_text="Jour analysé",
+                        annotation_position="top",
+                        annotation_font=dict(size=10, color="#0c2340"),
+                    )
+                    fig_coef.update_layout(
+                        height=260,
+                        margin=dict(l=10, r=80, t=20, b=10),
+                        plot_bgcolor="#f0f4f8",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        xaxis=dict(type="date", tickformat="%d/%m", gridcolor="#dde"),
+                        yaxis=dict(title="Coefficient", range=[0, 130], gridcolor="#dde"),
+                    )
+                    st.plotly_chart(fig_coef, use_container_width=True)
+
                 st.caption(f"📊 Données calculées par algorithme harmonique (4 constantes : M2, S2, N2, K1) "
                             f"depuis le port de {port['nom']}. Précision ±15 min.")
                 # Sortir du try
@@ -239,7 +309,7 @@ def _render_maree(latitude: float, longitude: float) -> None:
         # ── 2. Fallback ancien système si la base n'a pas de données ──
         except Exception:
             try:
-                tide_df, tide = generate_tide_curve(date.today(), latitude, longitude, hours=48)
+                tide_df, tide = generate_tide_curve(analysis_date, latitude, longitude, hours=48)
 
                 c1, c2, c3, c4 = st.columns(4)
                 c1.metric("Coefficient",    tide["coefficient"])
@@ -268,7 +338,7 @@ def _render_maree(latitude: float, longitude: float) -> None:
                 st.plotly_chart(fig, use_container_width=True)
                 st.caption("⚠️ Estimation lunaire — la base de marées officielle n'est pas encore chargée.")
             except Exception:
-                tide = estimate_tide(date.today(),
+                tide = estimate_tide(analysis_date,
                                       datetime.now().time().replace(second=0, microsecond=0),
                                       latitude, longitude)
                 c1, c2, c3, c4 = st.columns(4)
@@ -909,6 +979,52 @@ def render() -> None:
             scroll_to_anchor(anchor)
         return
 
+    # ── Choix de la date d'analyse ────────────────────────────────────
+    with st.container(border=True):
+        cm1, cm2, cm3 = st.columns([1.2, 2, 2])
+        with cm1:
+            mode_date = st.radio(
+                "📅 Date d'analyse",
+                ["Aujourd'hui", "Jour choisi"],
+                key="cond_mode_date",
+                horizontal=False,
+            )
+        with cm2:
+            if mode_date == "Aujourd'hui":
+                analysis_date = date.today()
+                st.markdown(
+                    f'<div style="background:#E3F2FD;border-left:3px solid #1565C0;'
+                    f'padding:8px 12px;border-radius:0 6px 6px 0;margin-top:24px;">'
+                    f'<strong>📅 {analysis_date.strftime("%A %d/%m/%Y")}</strong>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                analysis_date = st.date_input(
+                    "Choisis un jour",
+                    value=date.today(),
+                    min_value=date.today() - timedelta(days=730),
+                    max_value=date.today() + timedelta(days=14),
+                    format="DD/MM/YYYY",
+                    key="cond_chosen_date",
+                    help="Marées : jusqu'à 2 ans en arrière et 14 jours dans le futur. Météo : 7 jours en avant.",
+                )
+        with cm3:
+            # Indication selon la date
+            delta = (analysis_date - date.today()).days
+            if delta == 0:
+                lbl = "🕐 Conditions actuelles"
+            elif delta > 0:
+                lbl = f"🔮 Prévision dans {delta} jour(s)"
+            else:
+                lbl = f"⏪ Historique ({abs(delta)} jour(s))"
+            st.markdown(
+                f'<div style="background:#FFF3E0;border-left:3px solid #E65100;'
+                f'padding:8px 12px;border-radius:0 6px 6px 0;margin-top:24px;">'
+                f'<strong>{lbl}</strong></div>',
+                unsafe_allow_html=True,
+            )
+
     # ── Pêcheurs autour de moi (à développer) ─────────────────────────
     section("Pêcheurs autour de moi", icon="👥", anchor_id="pecheurs_autour")
     with st.container(border=True):
@@ -930,8 +1046,8 @@ def render() -> None:
             unsafe_allow_html=True,
         )
 
-    today  = date.today()
-    now_dt = datetime.now()
+    today  = analysis_date
+    now_dt = datetime.now() if analysis_date == date.today() else datetime.combine(analysis_date, datetime.min.time())
     end_2d = (today + timedelta(days=1)).isoformat()
 
     # ── Adresse reverse geocoding ─────────────────────────────────────
@@ -983,7 +1099,7 @@ def render() -> None:
     moon       = calculate_moon_phase(now_dt)
 
     # ── Sections ─────────────────────────────────────────────────────
-    _render_maree(latitude, longitude)
+    _render_maree(latitude, longitude, analysis_date)
 
     if weather_df is not None and not weather_df.empty:
         w = weather_df.copy()
