@@ -262,7 +262,13 @@ def _render_new_session() -> None:
             key="ns_lieu",
         )
 
+    # Carte du spot — détecte changement de coords pour forcer rerun
+    map_coords_key = f"{latitude:.5f}_{longitude:.5f}"
+    if st.session_state.get("ns_map_last_coords") != map_coords_key:
+        st.session_state["ns_map_last_coords"] = map_coords_key
+
     with st.expander("🗺️ Voir la carte du spot", expanded=False):
+        st.caption(f"📍 Position actuelle : **{latitude:.5f}, {longitude:.5f}**")
         terrestrial_map(latitude, longitude)
 
     section("Marée & conditions", icon="🌊")
