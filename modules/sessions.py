@@ -205,6 +205,16 @@ def _render_new_session() -> None:
                 for _, r in spots_df.iterrows()
             ]
             choice = st.selectbox("Spot enregistré", names, key="ns_spot_choice")
+
+            # Détecter changement de spot → reset complet
+            prev_choice = st.session_state.get("ns_prev_spot_choice")
+            if prev_choice != choice:
+                # Spot changé : on vide TOUT et on remet à jour
+                st.session_state.pop("ns_loc_lat", None)
+                st.session_state.pop("ns_loc_lon", None)
+                st.session_state.pop("ns_loc_nom", None)
+                st.session_state["ns_prev_spot_choice"] = choice
+
             if choice != "— Choisir un spot —":
                 clean_name = choice.replace("⭐ ", "", 1)
                 row_match = spots_df[spots_df["nom"] == clean_name]
@@ -228,6 +238,8 @@ def _render_new_session() -> None:
             else:
                 # Aucun spot choisi → vider la mémoire
                 st.session_state.pop("ns_loc_nom", None)
+                st.session_state.pop("ns_loc_lat", None)
+                st.session_state.pop("ns_loc_lon", None)
 
     with tab_saisir:
         lat_input, lon_input = location_picker("ns_session", spots_shortcut=False)
