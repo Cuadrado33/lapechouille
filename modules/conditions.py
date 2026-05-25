@@ -239,12 +239,26 @@ def _render_maree(latitude: float, longitude: float, analysis_date: date | None 
                     "port_id":      f"eq.{port['id']}",
                     "type":         "eq.PM",
                     "datetime_utc": f"gte.{d0}",
+                    "and":          f"(datetime_utc.lt.{d1})",
                     "order":        "datetime_utc.asc",
                     "limit":        "60",
                 }) or []
-                month_events = [e for e in month_events if e["datetime_utc"] < d1 and e.get("coefficient")]
+                # Filtre Python de secours
+                month_events = [e for e in month_events
+                                  if e["datetime_utc"] < d1 and e.get("coefficient")]
 
-                if len(month_events) >= 2:
+                st.markdown("---")
+                st.markdown("**📊 Coefficients par jour — 15 jours autour du jour analysé**")
+
+                if len(month_events) < 2:
+                    st.warning(
+                        f"⚠️ Pas assez de données dans la base de marées pour ce port. "
+                        f"({len(month_events)} marées trouvées pour {port['nom']} entre "
+                        f"{(analysis_date - timedelta(days=7)).strftime('%d/%m')} et "
+                        f"{(analysis_date + timedelta(days=8)).strftime('%d/%m')}).\n\n"
+                        f"💡 Lance `py generate_tides.py` pour générer les marées de l'année."
+                    )
+                else:
                     # Agréger par jour : on garde le COEF MAX de la journée
                     daily_coef = {}  # date -> coef max
                     for e in month_events:
@@ -261,8 +275,6 @@ def _render_maree(latitude: float, longitude: float, analysis_date: date | None 
                             pass
 
                     if daily_coef:
-                        st.markdown(f"**📊 Coefficients par jour — 15 jours autour du {analysis_date.strftime('%d/%m')}**")
-
                         sorted_days = sorted(daily_coef.keys())
                         dates_x = [datetime.combine(d, datetime.min.time()) for d in sorted_days]
                         coefs   = [daily_coef[d] for d in sorted_days]
