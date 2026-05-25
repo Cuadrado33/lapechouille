@@ -326,12 +326,20 @@ def _return_confirmed(confirmed_lat, confirmed_lon, default_lat, default_lon):
 # ---------------------------------------------------------------------------
 
 def terrestrial_map(latitude: float, longitude: float, height: int = 320) -> None:
-    iframe = f"https://maps.google.com/maps?q={latitude},{longitude}&z=14&output=embed"
-    components.html(
-        f'<iframe width="100%" height="{height}" frameborder="0" '
-        f'src="{iframe}" style="border-radius:12px;"></iframe>',
-        height=height + 20,
+    # Hash unique des coordonnées pour forcer Streamlit ET le navigateur à régénérer l'iframe
+    coord_key = f"{latitude:.6f}_{longitude:.6f}"
+    coord_hash = coord_key.replace(".", "").replace("-", "n")
+    # Cache-bust : ajout d'un param dans l'URL Google Maps qui change selon les coords
+    iframe = f"https://maps.google.com/maps?q={latitude},{longitude}&z=14&output=embed&_k={coord_hash}"
+    # Wrapper div avec id unique → Streamlit voit que c'est un nouveau composant
+    html = (
+        f'<div id="map_wrapper_{coord_hash}">'
+        f'<iframe key="{coord_hash}" width="100%" height="{height}" frameborder="0" '
+        f'src="{iframe}" style="border-radius:12px;border:none;"></iframe>'
+        f'</div>'
+        f'<!-- coords: {coord_key} -->'  # Commentaire HTML change le hash de components.html
     )
+    components.html(html, height=height + 20)
     st.markdown(f"[🗺️ Ouvrir Google Maps](https://www.google.com/maps?q={latitude:.6f},{longitude:.6f})")
 
 
