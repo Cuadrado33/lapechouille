@@ -231,73 +231,105 @@ def _render_maree(latitude: float, longitude: float, analysis_date: date | None 
                         conseil = "💤 **Mortes-eaux** — Faible activité, mais peut être bon pour certaines espèces sédentaires."
                     st.info(conseil)
 
-                # ── Graphique des coefficients sur 30 jours ────────────
+                # ── Graphique des coefficients sur 15 jours (par jour) ────────────
                 from core.supabase_client import supabase_get
-                d0 = (analysis_date - timedelta(days=15)).isoformat() + "T00:00:00Z"
-                d1 = (analysis_date + timedelta(days=15)).isoformat() + "T00:00:00Z"
+                d0 = (analysis_date - timedelta(days=7)).isoformat() + "T00:00:00Z"
+                d1 = (analysis_date + timedelta(days=8)).isoformat() + "T00:00:00Z"
                 month_events = supabase_get("tide_events", {
                     "port_id":      f"eq.{port['id']}",
                     "type":         "eq.PM",
                     "datetime_utc": f"gte.{d0}",
                     "order":        "datetime_utc.asc",
-                    "limit":        "120",
+                    "limit":        "60",
                 }) or []
                 month_events = [e for e in month_events if e["datetime_utc"] < d1 and e.get("coefficient")]
 
-                if len(month_events) >= 4:
-                    st.markdown("**📊 Coefficients sur 30 jours** (vives-eaux ↔ mortes-eaux)")
-                    dates_c  = []
-                    coefs    = []
+                if len(month_events) >= 2:
+                    # Agréger par jour : on garde le COEF MAX de la journée
+                    daily_coef = {}  # date -> coef max
                     for e in month_events:
                         try:
                             dt_local = datetime.fromisoformat(e["datetime_utc"].replace("Z","+00:00"))
-                            dates_c.append(dt_local)
-                            coefs.append(int(e["coefficient"]))
+                            m = dt_local.month
+                            offset_h = 2 if 4 <= m <= 10 else 1
+                            dt_local += timedelta(hours=offset_h)
+                            day_key = dt_local.date()
+                            c = int(e["coefficient"])
+                            if day_key not in daily_coef or c > daily_coef[day_key]:
+                                daily_coef[day_key] = c
                         except Exception:
                             pass
 
-                    # Couleurs selon le coef
-                    bar_colors = []
-                    for c in coefs:
-                        if c >= 95:   bar_colors.append("#C62828")   # vives-eaux fortes (rouge)
-                        elif c >= 70: bar_colors.append("#1565C0")   # moyennes (bleu)
-                        elif c >= 45: bar_colors.append("#FB8C00")   # faibles (orange)
-                        else:         bar_colors.append("#90A4AE")   # mortes-eaux (gris)
+                    if daily_coef:
+                        st.markdown(f"**📊 Coefficients par jour — 15 jours autour du {analysis_date.strftime('%d/%m')}**")
 
-                    fig_coef = go.Figure()
-                    fig_coef.add_trace(go.Bar(
-                        x=dates_c, y=coefs,
-                        marker=dict(color=bar_colors),
-                        hovertemplate="<b>%{x|%a %d/%m %H:%M}</b><br>Coef <b>%{y}</b><extra></extra>",
-                        showlegend=False,
-                    ))
-                    # Lignes de référence
-                    fig_coef.add_hline(y=95, line=dict(color="#C62828", width=1, dash="dot"),
-                                         annotation_text="Vives-eaux fortes", annotation_position="right",
-                                         annotation_font=dict(size=9, color="#C62828"))
-                    fig_coef.add_hline(y=70, line=dict(color="#1565C0", width=1, dash="dot"),
-                                         annotation_text="Moyennes", annotation_position="right",
-                                         annotation_font=dict(size=9, color="#1565C0"))
-                    fig_coef.add_hline(y=45, line=dict(color="#FB8C00", width=1, dash="dot"),
-                                         annotation_text="Mortes-eaux", annotation_position="right",
-                                         annotation_font=dict(size=9, color="#FB8C00"))
-                    # Marqueur jour analysé
-                    fig_coef.add_vline(
-                        x=datetime.combine(analysis_date, datetime.min.time()).timestamp() * 1000,
-                        line=dict(color="#0c2340", width=2),
-                        annotation_text="Jour analysé",
-                        annotation_position="top",
-                        annotation_font=dict(size=10, color="#0c2340"),
-                    )
-                    fig_coef.update_layout(
-                        height=260,
-                        margin=dict(l=10, r=80, t=20, b=10),
-                        plot_bgcolor="#f0f4f8",
-                        paper_bgcolor="rgba(0,0,0,0)",
-                        xaxis=dict(type="date", tickformat="%d/%m", gridcolor="#dde"),
-                        yaxis=dict(title="Coefficient", range=[0, 130], gridcolor="#dde"),
-                    )
-                    st.plotly_chart(fig_coef, use_container_width=True)
+                        sorted_days = sorted(daily_coef.keys())
+                        dates_x = [datetime.combine(d, datetime.min.time()) for d in sorted_days]
+                        coefs   = [daily_coef[d] for d in sorted_days]
+                        labels  = [d.strftime("%a %d/%m") for d in sorted_days]
+
+                        # Couleur selon le coef
+                        bar_colors = []
+                        for c in coefs:
+                            if c >= 95:   bar_colors.append("#C62828")   # vives-eaux fortes
+                            elif c >= 70: bar_colors.append("#1565C0")   # moyennes
+                            elif c >= 45: bar_colors.append("#FB8C00")   # faibles
+                            else:         bar_colors.append("#90A4AE")   # mortes-eaux
+
+                        # Coef du jour analysé pour mise en évidence
+                        analysis_coef = daily_coef.get(analysis_date, None)
+
+                        fig_coef = go.Figure()
+                        fig_coef.add_trace(go.Bar(
+                            x=labels, y=coefs,
+                            marker=dict(
+                                color=bar_colors,
+                                line=dict(
+                                    color=["#0c2340" if d == analysis_date else "rgba(0,0,0,0)" for d in sorted_days],
+                                    width=[3 if d == analysis_date else 0 for d in sorted_days],
+                                ),
+                            ),
+                            text=[str(c) for c in coefs],
+                            textposition="outside",
+                            textfont=dict(size=11, color="#0c2340", family="system-ui"),
+                            hovertemplate="<b>%{x}</b><br>Coefficient <b>%{y}</b><extra></extra>",
+                            showlegend=False,
+                        ))
+                        # Lignes de référence
+                        fig_coef.add_hline(y=95, line=dict(color="#C62828", width=1, dash="dot"),
+                                            annotation_text="Vives-eaux fortes (≥95)", annotation_position="right",
+                                            annotation_font=dict(size=9, color="#C62828"))
+                        fig_coef.add_hline(y=70, line=dict(color="#1565C0", width=1, dash="dot"),
+                                            annotation_text="Moyennes (≥70)", annotation_position="right",
+                                            annotation_font=dict(size=9, color="#1565C0"))
+                        fig_coef.add_hline(y=45, line=dict(color="#FB8C00", width=1, dash="dot"),
+                                            annotation_text="Mortes-eaux (<45)", annotation_position="right",
+                                            annotation_font=dict(size=9, color="#FB8C00"))
+
+                        fig_coef.update_layout(
+                            height=300,
+                            margin=dict(l=10, r=140, t=40, b=50),
+                            plot_bgcolor="#f0f4f8",
+                            paper_bgcolor="rgba(0,0,0,0)",
+                            xaxis=dict(tickangle=-45, gridcolor="#dde"),
+                            yaxis=dict(title="Coefficient", range=[0, 130], gridcolor="#dde"),
+                            bargap=0.2,
+                        )
+                        st.plotly_chart(fig_coef, use_container_width=True)
+
+                        # Légende couleurs
+                        st.markdown(
+                            '<div style="display:flex;gap:14px;font-size:11px;justify-content:center;margin-top:-12px;">'
+                            '<span><span style="color:#C62828;font-size:18px;">■</span> Vives-eaux ≥95</span>'
+                            '<span><span style="color:#1565C0;font-size:18px;">■</span> Moyennes 70-94</span>'
+                            '<span><span style="color:#FB8C00;font-size:18px;">■</span> Faibles 45-69</span>'
+                            '<span><span style="color:#90A4AE;font-size:18px;">■</span> Mortes-eaux &lt;45</span>'
+                            '</div>',
+                            unsafe_allow_html=True,
+                        )
+
+                        if analysis_coef:
+                            st.caption(f"📍 Coefficient max du {analysis_date.strftime('%d/%m')} : **{analysis_coef}** (barre encadrée en bleu marine)")
 
                 st.caption(f"📊 Données calculées par algorithme harmonique (4 constantes : M2, S2, N2, K1) "
                             f"depuis le port de {port['nom']}. Précision ±15 min.")
